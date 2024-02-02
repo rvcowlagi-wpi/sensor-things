@@ -2,7 +2,7 @@ function speed_radar()
 
 close all; clc
 
-r_	= 5^2; % km/hr
+r_	= 5^2; % (km/hr)^2
 xSS	= linspace(20, 200, 100);
 ySS	= linspace(-20, 220, 100);
 
@@ -14,9 +14,9 @@ fXPrior			= prior_X(xSS);
 fYGivenX		= conditional_YGivenX(xSS(100), ySS);
 fJoint			= joint_XY(xMesh, yMesh);
 
-yMeas			= 50;
-xBar			= 50;
-integral(@(x) posterior_XGivenY(x, yMeas), xBar, infty)
+zStar			= 50;
+xStar			= 60;
+integral(@(x) posterior_XGivenY(x, zStar), xStar, infty)
 % This is P[ X >= xBar | y = yMeas ]
 
 
@@ -24,7 +24,7 @@ integral(@(x) posterior_XGivenY(x, yMeas), xBar, infty)
 fprintf('\n\n ---- Sanity Check ---- \n')
 integral(@prior_X, 0, infty)
 integral(@(y) conditional_YGivenX(xSS(50), y), 0, infty)
-integral(@marginal_Y, 10, infty)
+integral(@marginal_Y, -infty, infty)
 
 
 
