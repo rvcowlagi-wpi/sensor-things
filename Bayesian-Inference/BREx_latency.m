@@ -3,7 +3,7 @@ function BREx_latency()
 close all; clc
 
 a = 5;
-z = a*rand
+z = 0.05; %a*rand
 
 tSS		= linspace(0, a, 300);
 priorT = (1/a)*ones(1, 300);
