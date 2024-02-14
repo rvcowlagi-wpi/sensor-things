@@ -1,6 +1,8 @@
-function speed_radar()
+function BREx_speed_radar_1()
 
 close all; clc
+
+% Measurement error has constant variance
 
 r_	= 5^2; % (km/hr)^2
 xSS	= linspace(20, 200, 100);
