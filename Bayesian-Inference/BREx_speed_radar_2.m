@@ -1,12 +1,12 @@
-function BREx_speed_radar_1()
+function BREx_speed_radar_2()
 
 close all; clc
 
-% Measurement error has constant variance
+% Measurement error has speed-dependent variance
 
 r_	= 5^2; % (km/hr)^2
-xSS	= linspace(20, 200, 100);
-ySS	= linspace(-20, 220, 100);
+xSS	= linspace(0, 400, 100);
+ySS	= linspace(-50, 400, 100);
 
 infty = 1000;	% Practical "infinity"
 
@@ -45,7 +45,8 @@ ax.FontSize = fontSize_;
 
 
 	function pdf_ = conditional_YGivenX(x_, y_)
-		pdf_ = (1 ./ (sqrt(2*pi*r_) )) .* exp( -(y_ - x_).^2 / (2*r_) );
+		pdf_ = (1 ./ (sqrt(2*pi) .* (x_/10) ) ) .* ...
+			exp( -(y_ - x_).^2 ./ (2 .* (x_.^2 / 100) ) );
 	end
 
 	
@@ -60,7 +61,7 @@ ax.FontSize = fontSize_;
 	function pdf_ = marginal_Y(y_)
 		pdf_ = zeros(size(y_));
 		for k = 1:numel(y_)
-			pdf_(k) = integral(@(x_) joint_XY(x_, y_(k)), 1, 1000);
+			pdf_(k) = integral(@(x_) joint_XY(x_, y_(k)), 0, infty);
 		end
 	end
 
