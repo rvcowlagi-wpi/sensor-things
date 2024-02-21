@@ -7,9 +7,11 @@ r		= 0.01;
 
 t_		= (0:1:4)';
 
-z_		= [ones(5, 1) t_]*[x1True; x2True] + sqrt(r)*randn(5, 1);
+z_		= [0.1697; 1.6835; 3.0756; 4.6216; 5.9839]; %[ones(5, 1) t_]*[x1True; x2True] + sqrt(r)*randn(5, 1);
 
-%---- With all "batch" measurements
+%% With all "batch" measurements
+fprintf('---- Batch update ---- \n\n')
+
 xBar	= [0; 0];
 PXX		= [0.1 0; 0 0.1];
 
@@ -22,19 +24,21 @@ PX			= PXX - (PXZ / PZ)*(PXZ')
 
 
 
-%---- With two "batch" measurements
-xBar	= [0; 0];
-PXX		= [0.1 0; 0 0.1];
+%% With two "batch" measurements
+% xBar	= [0; 0];
+% PXX		= [0.1 0; 0 0.1];
+% 
+% C = [ [1; 1] t_(1:2)];
+% PZ	= C*PXX*C' + r*eye(2);
+% PXZ	= (C*PXX)';
+% 
+% xHat2Batch	= xBar + PXZ*( PZ \ (z_(1:2) - C*xBar) )
+% PX			= PXX - (PXZ / PZ)*(PXZ')
 
-C = [ [1; 1] t_(1:2)];
-PZ	= C*PXX*C' + r*eye(2);
-PXZ	= (C*PXX)';
 
-xHat2Batch	= xBar + PXZ*( PZ \ (z_(1:2) - C*xBar) )
-PX			= PXX - (PXZ / PZ)*(PXZ')
+%% Recursive
+fprintf('---- Recursive update ---- \n\n')
 
-
-%----- Recursive
 xBar	= [0; 0];
 PXX		= [0.1 0; 0 0.1];
 xHat	= xBar;
