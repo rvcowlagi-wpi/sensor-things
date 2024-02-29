@@ -41,9 +41,9 @@ n_t_pts = numel(time_stamps);
 % $$ \underline{x}(k) = F\underline{x}(k-1) + G_1\underline{u}(k-1) + \underline{w}(k-1)$$
 %%
 % In this example $\underline{u}$ and $\underline{w}$ are scalars.
-F	= [1 dt; 0 1];
-G1	= [0; dt];
-G2	= [0; dt];
+A	= [1 dt; 0 1];
+B	= [0; dt];
+G	= [0; dt];
 %%
 % The measurement model is $\underline{z} = C\underline{x}.$
 C	= eye(2);
@@ -52,26 +52,30 @@ C	= eye(2);
 %%
 % Set initial values for state estimate $\underline{\hat{x}}$ and
 % estimation error covariance $P$.
-xhat		= [gps_position(1); gps_speed(1)];
+xHat	= [gps_position(1); gps_speed(1)];
 P		= R;
 
+[PSteadyState,~,~]	= idare(A', C', (G*Q*G'), R, [], []);
+PSteadyStateStore	= reshape(PSteadyState, 4, 1);
+LSteadyState		= PSteadyState * C' / (C*PSteadyState*C' + R);
 %% 
 % Memory allocation for recording the state estimate and error covariance
 % over time. We will store the result of each iteration in the variables
 % |xhat_store| and |P_store|. We also store the trace of the P matrix at
 % each iteration in |P_trace_store|. Each column of these variables stores
 % $\underline{\hat{x}}$ and $P$ at each iteration. 
-xhat_store	= zeros(2, n_t_pts);
-P_store		= zeros(4, n_t_pts);
-P_trace_store	= zeros(1, n_t_pts);
+storeXHat	= zeros(2, n_t_pts);
+storeP		= zeros(4, n_t_pts);
+storePTrace	= zeros(1, n_t_pts);
+storeInnov	= zeros(2, n_t_pts);
 %%
 % Therefore, the first column stores the initial values. In general the
 % $k^\mathrm{th}$ column of |xhat_store| stores $\underline{\hat{x}}(k-1)$
 % and so on. The $(k-1)$ is because MATLAB's array numbering starts at 1,
 % whereas our $k$ values (time stamps) start at 0.
-xhat_store(:, 1)	= xhat;
-P_trace_store(:, 1)	= trace(P);
-P_store(:, 1)		= reshape(P, 4, 1); 
+storeXHat(:, 1)	= xHat;
+storePTrace(:, 1)	= trace(P);
+storeP(:, 1)		= reshape(P, 4, 1); 
 %%
 % The |reshape| command in the previous line stores the matrix P as a 4x1
 % array for convenience. Otherwise we would need a three-dimensional array.
@@ -85,27 +89,43 @@ for m1 = 1:(n_t_pts-1)
 %%
 % Prediction equations to get a preliminary estimate and error covariance.
 	u	= accelerometer(m1);
-	x_minus	= F*xhat + G1*u;
-	P_minus	= F*P*F' + G2*Q*G2';
+	xHatMinus	= A*xHat + B*u;
+	PMinus	= A*P*A' + G*Q*G';
 %%	
 % Compute Kalman gain. Note the use of |/| command instead of inverse.
-	L	= (P_minus * C') / (C * P_minus * C' + R );
+	L	= (PMinus * C') / (C * PMinus * C' + R );
 	
 %% 
 % Correction equations to get new estimate and error covariance at this
 % iteration. Note the |eye(2)| command, which is a 2x2 identity matrix.
-	z	= [gps_position(m1 + 1); gps_speed(m1 + 1)];
-	xhat	= x_minus + L*(z - C*x_minus);
-	P	= (eye(2) - L*C)*P_minus;
+	z			= [gps_position(m1 + 1); gps_speed(m1 + 1)];
+	thisInnov	= z - C*xHatMinus;
+	xHat		= xHatMinus + L*(thisInnov);
+% 	xhat		= x_minus + LSteadyState*thisInnovation;
+	P			= (eye(2) - L*C)*PMinus;
 	
 %% 
 % Store the newly computed estimate and error covariance.
-	xhat_store(:, m1+1)	= xhat;
-	P_store(:, m1+1)	= reshape(P, 4, 1);
-	P_trace_store(:, m1+1)	= trace(P);
+	storeXHat(:, m1+1)		= xHat;
+	storeP(:, m1+1)			= reshape(P, 4, 1);
+	storePTrace(:, m1+1)	= trace(P);
+	storeInnov(:, m1+1)		= thisInnov;
 end
 %%
 % End of Kalman filter iterations.
+
+%% Innovation autocorrelation
+nTimeStamps		= length(time_stamps);
+nMeasDim		= 2;
+
+innovAutoCorr	= zeros(1, nTimeStamps);
+shiftedInnov	= zeros(nMeasDim, nTimeStamps);
+for m1 = 1:nTimeStamps %- 75)
+	shiftedInnov(:,m1+1:end)= storeInnov(:, 2:(nTimeStamps - m1 + 1));
+	innovAutoCorr(m1)		= (1 / (nTimeStamps - m1) ) * (...
+			sum( shiftedInnov(1, m1+1:end).*storeInnov(1, m1+1:end) ) + ...
+			sum( shiftedInnov(2, m1+1:end).*storeInnov(2, m1+1:end) ) );
+end
 
 %% Plot Results
 %% 
@@ -119,19 +139,47 @@ end
 % decreasing trace of $P$ indicates increasing confidence in the estimate.
 % We cannot achieve $tr(P) = 0$ because sensor noise is always present.
 figure; 
-subplot(211); hold on; plot(time_stamps, xhat_store(1,:), 'LineWidth', 2)
+subplot(211); hold on; plot(time_stamps, storeXHat(1,:), 'LineWidth', 2)
 title('State estimate mean $\hat{x}_1$ (position)', 'Interpreter', 'latex', 'FontSize', 14)
 xlabel('Time (s)', 'Interpreter', 'latex', 'FontSize', 12);
 ylabel('$\hat{x}_1$ (m)', 'Interpreter', 'latex', 'FontSize', 12);
 
-subplot(212); hold on; plot(time_stamps, xhat_store(2,:), 'LineWidth', 2)
+subplot(212); hold on; plot(time_stamps, storeXHat(2,:), 'LineWidth', 2)
 title('State estimate mean $\hat{x}_2$ (speed)', 'Interpreter', 'latex', 'FontSize', 14)
 xlabel('Time (s)', 'Interpreter', 'latex', 'FontSize', 12);
 ylabel('$\hat{x}_2$ (m/s)', 'Interpreter', 'latex', 'FontSize', 12);
 
 
 figure;
-plot(time_stamps, P_trace_store, 'LineWidth', 2)
+plot(time_stamps, storePTrace, 'LineWidth', 2)
 title('Trace of estimation error covariance $P$', 'Interpreter', 'latex', 'FontSize', 14)
 xlabel('Time (s)', 'Interpreter', 'latex', 'FontSize', 12);
 ylabel('tr$(P)$, units N/A', 'Interpreter', 'latex', 'FontSize', 12);
+
+
+figure;
+plot(time_stamps, storeP, 'LineWidth', 2); hold on;
+ax = gca;
+ax.ColorOrderIndex = 1;
+plot(time_stamps, kron(PSteadyStateStore, ones(1, length(time_stamps))), 'LineWidth', 2, 'LineStyle', '--')
+title('Elements of estimation error covariance $P$', 'Interpreter', 'latex', 'FontSize', 14)
+xlabel('Time (s)', 'Interpreter', 'latex', 'FontSize', 12);
+ylabel('$p_{ij}$', 'Interpreter', 'latex', 'FontSize', 12);
+legend('$p_{11}$', '$p_{12}$', '$p_{21}$', '$p_{22}$', 'Interpreter', 'latex' )
+
+
+figure;
+plot(time_stamps, storeInnov, 'LineWidth', 2)
+title('Innovations sequence', 'Interpreter', 'latex', 'FontSize', 14)
+xlabel('Time (s)', 'Interpreter', 'latex', 'FontSize', 12);
+ylabel('Innovation', 'Interpreter', 'latex', 'FontSize', 12);
+
+
+figure;
+plot(time_stamps, innovAutoCorr, 'LineWidth', 2); hold on;
+plot(time_stamps, (2/sqrt(nTimeStamps))*ones(size(time_stamps)), 'LineWidth', 2, 'LineStyle', '--' );
+ax = gca; ax.ColorOrderIndex = ax.ColorOrderIndex - 1;
+plot(time_stamps, (-2/sqrt(nTimeStamps))*ones(size(time_stamps)), 'LineWidth', 2, 'LineStyle', '--' )
+title('Innovations autocorrelation', 'Interpreter', 'latex', 'FontSize', 14)
+xlabel('Time (s)', 'Interpreter', 'latex', 'FontSize', 12);
+ylabel('Innovation', 'Interpreter', 'latex', 'FontSize', 12);
