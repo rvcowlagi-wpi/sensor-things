@@ -16,10 +16,7 @@ load data_1D_navigation.mat
 % because we use acceleration data in the predictive model (kinematics).
 % Process noise variance is a scalar here because 1D acceleration is
 % measured.
-% q	= (0.25)^2; %(m/s2)^2
-% Q	= q;
-
-q	= (0.05)^2; %(m/s2)^2
+q	= (0.25)^2; %(m/s2)^2
 Q	= q;
 
 %%
@@ -147,7 +144,7 @@ end
 % We cannot achieve $tr(P) = 0$ because sensor noise is always present.
 fontSize_ = 20;
 
-figure('Units','normalized', 'Position', [0.1 0.1 0.5*[1 1]]) 
+figure; 
 subplot(211); hold on; plot(time_stamps, storeXHat(1,:), 'LineWidth', 2)
 title('State estimate mean $\hat{x}_1$ (position)', 'Interpreter', 'latex', 'FontSize', 14)
 xlabel('Time (s)', 'Interpreter', 'latex', 'FontSize', fontSize_);
@@ -159,9 +156,6 @@ title('State estimate mean $\hat{x}_2$ (speed)', 'Interpreter', 'latex', 'FontSi
 xlabel('Time (s)', 'Interpreter', 'latex', 'FontSize', fontSize_);
 ylabel('$\hat{x}_2$ (m/s)', 'Interpreter', 'latex', 'FontSize', fontSize_);
 ax = gca; ax.FontSize = fontSize_; ax.FontName = 'Times New Roman';
-
-exportgraphics(gcf, 'kf_1Dnav_state_underestprocess.png', 'Resolution', 150)
-
 
 figure;
 plot(time_stamps, storePTrace, 'LineWidth', 2)
@@ -194,21 +188,20 @@ plot(time_stamps, 2*sqrt(innovCovar(2,2))*ones(1, length(time_stamps)), ...
 	'LineWidth', 2, 'LineStyle', '--'); ax.ColorOrderIndex = 2;
 plot(time_stamps, -2*sqrt(innovCovar(2,2))*ones(1, length(time_stamps)), ...
 	'LineWidth', 2, 'LineStyle', '--')
-% title('Innovations sequence', 'Interpreter', 'latex', 'FontSize', 14)
+title('Innovations sequence', 'Interpreter', 'latex', 'FontSize', 14)
 xlabel('Time (s)', 'Interpreter', 'latex', 'FontSize', fontSize_);
 ylabel('Innovation', 'Interpreter', 'latex', 'FontSize', fontSize_);
 ax = gca; ax.FontSize = fontSize_; ax.FontName = 'Times New Roman';
-exportgraphics(gcf, 'kf_1Dnav_innov_underestprocess.png', 'Resolution', 150)
+exportgraphics(gcf, ['kf_1Dnav' ...
+	'_.png'], 'Resolution', 150)
 
-figure('Units','normalized', 'Position', [0.1 0.2 0.5*[1 1]])
+figure('Units','normalized', 'Position', [0.1 0.2 0.5*[1 1.6]])
 plot(time_stamps, innovAutoCorr, 'LineWidth', 2); hold on;
 plot(time_stamps, twoSigmaBd, 'LineWidth', 2, 'LineStyle', '--' );
 ax = gca; ax.FontSize = fontSize_;
 ax.ColorOrderIndex = ax.ColorOrderIndex - 1;
 plot(time_stamps, -twoSigmaBd, 'LineWidth', 2, 'LineStyle', '--' )
-% title('Innovations autocorrelation', 'Interpreter', 'latex', 'FontSize', 14)
+title('Innovations autocorrelation', 'Interpreter', 'latex', 'FontSize', 14)
 xlabel('Time (s)', 'Interpreter', 'latex', 'FontSize', fontSize_);
 ylabel('Innovation', 'Interpreter', 'latex', 'FontSize', fontSize_);
 ax = gca; ax.FontSize = fontSize_; ax.FontName = 'Times New Roman';
-exportgraphics(gcf, 'kf_1Dnav_autocorr_underestprocess.png', 'Resolution', 150)
-
