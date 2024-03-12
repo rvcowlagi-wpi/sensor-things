@@ -19,10 +19,10 @@ zBear		= bearTrue + vNoiseBear;
 save data_2D_RT_tracker.mat zRange zBear timeStamps rangeTrue bearTrue
 
 fig1= figure;
-plot(timeStamps, rangeTrue, timeStamps, zRange);
+plot(timeStamps, rangeTrue, 'LineWidth', 3);% , timeStamps, zRange);
 ax1	= gca;
 make_nice_figures(fig1, ax1, 18, [], 'Time', 'Range', 'Range', [],[],[],[]);
-
+return
 
 fig2= figure;
 plot(timeStamps, bearTrue*180/pi, timeStamps, zBear*180/pi);

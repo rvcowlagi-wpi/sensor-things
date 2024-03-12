@@ -8,14 +8,14 @@ clear variables; close all; clc
 % In practice, data are not available prerecorded like this example.
 % Instead, data are received in real time.
 % This data file loads the following variables with self-evident meanings:
-% |time_stamps|, |accelerometer|, |gps_position|, and |gps_speed.|
+% |timeStamps|, |accelerometer|, |gps_position|, and |gps_speed.|
 load data_2D_RT_tracker.mat
 
 nStates = 4;	% States are r, rDot, theta, thetaDot
 nMeas	= 2;	% Measurements are r, theta
 
 %% Error Covariances
-Q	= [(0.5)^2 0; 0 (5*pi/180)^2];
+Q	= [(100)^2 0; 0 (20*pi/180)^2];
 R	= [0.3^2 0; 0 (2*pi/180)^2];
 
 %% Time Step and Interval of Interest
@@ -46,7 +46,7 @@ C	= [1 0 0 0; 0 0 1 0];
 % Set initial values for state estimate $\underline{\hat{x}}$ and
 % estimation error covariance $P$.
 xHat	= [zRange(1); 0; zBear(1); 0];	
-P		= diag([R(1,1), 1, R(2,2), 0]);
+P		= diag([R(1,1), 0.1, R(2,2), 0]);
 
 [PSteadyState,~,~]	= idare(A', C', (G*Q*G'), R, [], []);
 PSteadyStateStore	= reshape(PSteadyState, nStates^2, 1);
@@ -108,58 +108,75 @@ end
 % End of Kalman filter iterations.
 
 %% Innovation autocorrelation
+innovCovar		= C * PSteadyState * C' + R;
+
+nTimeStamps		= length(timeStamps);
+nMeasDim		= 2;
+
 innovAutoCorr	= zeros(1, nTimeStamps);
-shiftedInnov	= zeros(nMeas, nTimeStamps);
-for m1 = 1:(nTimeStamps - 75)
+shiftedInnov	= zeros(nMeasDim, nTimeStamps);
+twoSigmaBd		= zeros(1, nTimeStamps);
+for m1 = 1:nTimeStamps - 10
 	shiftedInnov(:,m1+1:end)= storeInnov(:, 2:(nTimeStamps - m1 + 1));
 	innovAutoCorr(m1)		= (1 / (nTimeStamps - m1) ) * (...
 			sum( shiftedInnov(1, m1+1:end).*storeInnov(1, m1+1:end) ) + ...
 			sum( shiftedInnov(2, m1+1:end).*storeInnov(2, m1+1:end) ) );
+	twoSigmaBd(m1)			= 2/sqrt(nTimeStamps - m1); 
 end
 
 %% Plot Results
-%% 
-% Note that every plot has a title and has both axes labeled with units.
-% This is standard practice. Plots are meaningless without labeled axes.
-% All plots in your assignments should be similarly labeled. Units for the
-% trace of $P$ are tricky because we did not non-dimensionalize the problem
-% (as is often done in practice). Therefore, we are adding numbers in
-% different units: m and m/s, which is not quite correct, but suffices to
-% illustrate in this example that the filter works as expected. The
-% decreasing trace of $P$ indicates increasing confidence in the estimate.
-% We cannot achieve $tr(P) = 0$ because sensor noise is always present.
 fig1 = figure; 
-subplot(211); hold on; plot(timeStamps, storeXHat(1,:), 'LineWidth', 2);
+subplot(221); hold on; plot(timeStamps, storeXHat(1,:), 'LineWidth', 2);
 hold on;
 plot(timeStamps, rangeTrue, 'LineWidth',  2)
-make_nice_figures(gcf, gca, 18, [], 'Time (h)', 'Range $\hat{x}_1 = r$ (km)', 'Range and Rate', [],[],[],[]);
+make_nice_figures(gcf, gca, 18, [], 'Time (h)', ...
+	'Range $\hat{x}_1 = r$ (km)', 'Range and Rate', [],[],[],[]);
 
-subplot(212); hold on; plot(timeStamps, storeXHat(2,:), 'LineWidth', 2)
-make_nice_figures(gcf, gca, 18, [], 'Time (h)', 'Range rate $\hat{x}_2 = \dot{r}$ (km/hr)', 'Range and Rate', [],[],[],[]);
+subplot(222); hold on; plot(timeStamps, storeXHat(2,:), 'LineWidth', 2)
+make_nice_figures(gcf, gca, 18, [], 'Time (h)', ...
+	'Range rate $\hat{x}_2 = \dot{r}$ (km/hr)', 'Range and Rate', [],[],[],[]);
 
-return
+subplot(223); hold on; plot(timeStamps, storeXHat(3,:)*180/pi, 'LineWidth', 2);
+hold on;
+plot(timeStamps, bearTrue, 'LineWidth',  2)
+make_nice_figures(gcf, gca, 18, [], 'Time (h)', ...
+	'Range $\hat{x}_3 = \theta$ (deg)', 'Bearing and Rate', [],[],[],[]);
+
+subplot(224); hold on; plot(timeStamps, storeXHat(4,:)*180/pi, 'LineWidth', 2)
+make_nice_figures(gcf, gca, 18, [], 'Time (h)', ...
+	'Range rate $\hat{x}_4 = \dot{\theta}$ (deg/hr)', 'Bearing and Rate', [],[],[],[]);
 
 
-figure;
-plot(timeStamps, storePTrace, 'LineWidth', 2)
-title('Trace of estimation error covariance $P$', 'Interpreter', 'latex', 'FontSize', 14)
-xlabel('Time (s)', 'Interpreter', 'latex', 'FontSize', 12);
-ylabel('tr$(P)$, units N/A', 'Interpreter', 'latex', 'FontSize', 12);
 
 
-figure;
+fig2 = figure;
+plot(timeStamps, storePTrace, 'LineWidth', 2);
+make_nice_figures(gcf, gca, 18, [], 'Time (h)', 'tr$(P)$', 'Trace', [],[],[],[]);
+
+fig3 = figure;
 plot(timeStamps, storeP, 'LineWidth', 2); hold on;
-ax = gca;
-ax.ColorOrderIndex = 1;
-plot(timeStamps, kron(PSteadyStateStore, ones(1, length(timeStamps))), 'LineWidth', 2, 'LineStyle', '--')
-title('Elements of estimation error covariance $P$', 'Interpreter', 'latex', 'FontSize', 14)
-xlabel('Time (s)', 'Interpreter', 'latex', 'FontSize', 12);
+make_nice_figures(gcf, gca, 18, [], 'Time (h)', '$p_{ij}$', 'Trace', [],[],[],[]);
+
 ylabel('$p_{ij}$', 'Interpreter', 'latex', 'FontSize', 12);
-legend('$p_{11}$', '$p_{12}$', '$p_{21}$', '$p_{22}$', 'Interpreter', 'latex' )
 
 
 figure;
-plot(timeStamps, storeInnov, 'LineWidth', 2)
+subplot(121)
+plot(timeStamps, storeInnov(1, :), 'LineWidth', 2); hold on;
+ax = gca; ax.ColorOrderIndex = 1;
+plot(timeStamps, 2*sqrt(innovCovar(1,1))*ones(1, length(timeStamps)), ...
+	'LineWidth', 2, 'LineStyle', '--'); ax.ColorOrderIndex = 1;
+plot(timeStamps, -2*sqrt(innovCovar(1,1))*ones(1, length(timeStamps)), ...
+	'LineWidth', 2, 'LineStyle', '--')
+
+subplot(122)
+plot(timeStamps, storeInnov(2, :), 'LineWidth', 2); hold on;
+ax = gca; ax.ColorOrderIndex = 2;
+plot(timeStamps, 2*sqrt(innovCovar(2,2))*ones(1, length(timeStamps)), ...
+	'LineWidth', 2, 'LineStyle', '--'); ax.ColorOrderIndex = 2;
+plot(timeStamps, -2*sqrt(innovCovar(2,2))*ones(1, length(timeStamps)), ...
+	'LineWidth', 2, 'LineStyle', '--')
+
 title('Innovations sequence', 'Interpreter', 'latex', 'FontSize', 14)
 xlabel('Time (s)', 'Interpreter', 'latex', 'FontSize', 12);
 ylabel('Innovation', 'Interpreter', 'latex', 'FontSize', 12);
