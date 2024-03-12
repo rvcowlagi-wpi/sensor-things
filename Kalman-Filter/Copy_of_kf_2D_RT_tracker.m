@@ -11,9 +11,6 @@ clear variables; close all; clc
 % |time_stamps|, |accelerometer|, |gps_position|, and |gps_speed.|
 load data_2D_RT_tracker.mat
 
-nStates = 4;	% States are r, rDot, theta, thetaDot
-nMeas	= 2;	% Measurements are r, theta
-
 %% Error Covariances
 Q	= [(0.5)^2 0; 0 (5*pi/180)^2];
 R	= [0.3^2 0; 0 (2*pi/180)^2];
@@ -34,22 +31,22 @@ nTimeStamps = length(timeStamps);
 % $$ \underline{x}(k) = F\underline{x}(k-1) + G_1\underline{u}(k-1) + \underline{w}(k-1)$$
 %%
 % In this example $\underline{u}$ and $\underline{w}$ are scalars.
-A	= [ [1 dt; 0 1] zeros(2) ; zeros(2) [1 dt; 0 1] ];
-B	= zeros(4,1);
-G	= [ [0; dt] zeros(2, 1); zeros(2, 1) [0; dt] ];
+A	= [1 dt; 0 1];
+B	= [0; 0];
+G	= [0; dt];
 %%
 % The measurement model is $\underline{z} = C\underline{x}.$
-C	= [1 0 0 0; 0 0 1 0];
+C	= [1 0];
 
 %% Initialization
 %%
 % Set initial values for state estimate $\underline{\hat{x}}$ and
 % estimation error covariance $P$.
-xHat	= [zRange(1); 0; zBear(1); 0];	
-P		= diag([R(1,1), 1, R(2,2), 0]);
+xHat	= [rangeMeas(1); 0];
+P		= [R 0; 0 1];
 
 [PSteadyState,~,~]	= idare(A', C', (G*Q*G'), R, [], []);
-PSteadyStateStore	= reshape(PSteadyState, nStates^2, 1);
+PSteadyStateStore	= reshape(PSteadyState, 4, 1);
 LSteadyState		= PSteadyState * C' / (C*PSteadyState*C' + R);
 %% 
 % Memory allocation for recording the state estimate and error covariance
@@ -57,10 +54,10 @@ LSteadyState		= PSteadyState * C' / (C*PSteadyState*C' + R);
 % |xhat_store| and |P_store|. We also store the trace of the P matrix at
 % each iteration in |P_trace_store|. Each column of these variables stores
 % $\underline{\hat{x}}$ and $P$ at each iteration. 
-storeXHat	= zeros(nStates, nTimeStamps);
-storeP		= zeros(nStates^2, nTimeStamps);
+storeXHat	= zeros(2, nTimeStamps);
+storeP		= zeros(4, nTimeStamps);
 storePTrace	= zeros(1, nTimeStamps);
-storeInnov	= zeros(nMeas, nTimeStamps);
+storeInnov	= zeros(2, nTimeStamps);
 %%
 % Therefore, the first column stores the initial values. In general the
 % $k^\mathrm{th}$ column of |xhat_store| stores $\underline{\hat{x}}(k-1)$
@@ -68,7 +65,7 @@ storeInnov	= zeros(nMeas, nTimeStamps);
 % whereas our $k$ values (time stamps) start at 0.
 storeXHat(:, 1)		= xHat;
 storePTrace(:, 1)	= trace(P);
-storeP(:, 1)		= reshape(P, nStates^2, 1); 
+storeP(:, 1)		= reshape(P, 4, 1); 
 %%
 % The |reshape| command in the previous line stores the matrix P as a 4x1
 % array for convenience. Otherwise we would need a three-dimensional array.
@@ -91,16 +88,16 @@ for m1 = 1:(nTimeStamps-1)
 %% 
 % Correction equations to get new estimate and error covariance at this
 % iteration. Note the |eye(2)| command, which is a 2x2 identity matrix.
-	z			= [zRange(m1 + 1); zBear(m1 + 1)];
+	z			= rangeMeas(m1 + 1);
 	thisInnov	= z - C*xHatMinus;
 	xHat		= xHatMinus + L*(thisInnov);
 % 	xhat		= x_minus + LSteadyState*thisInnovation;
-	P			= (eye(nStates) - L*C)*PMinus;
+	P			= (eye(2) - L*C)*PMinus;
 	
 %% 
 % Store the newly computed estimate and error covariance.
 	storeXHat(:, m1+1)		= xHat;
-	storeP(:, m1+1)			= reshape(P, nStates^2, 1);
+	storeP(:, m1+1)			= reshape(P, 4, 1);
 	storePTrace(:, m1+1)	= trace(P);
 	storeInnov(:, m1+1)		= thisInnov;
 end
@@ -108,8 +105,10 @@ end
 % End of Kalman filter iterations.
 
 %% Innovation autocorrelation
+nMeasDim		= 2;
+
 innovAutoCorr	= zeros(1, nTimeStamps);
-shiftedInnov	= zeros(nMeas, nTimeStamps);
+shiftedInnov	= zeros(nMeasDim, nTimeStamps);
 for m1 = 1:(nTimeStamps - 75)
 	shiftedInnov(:,m1+1:end)= storeInnov(:, 2:(nTimeStamps - m1 + 1));
 	innovAutoCorr(m1)		= (1 / (nTimeStamps - m1) ) * (...
@@ -128,16 +127,16 @@ end
 % illustrate in this example that the filter works as expected. The
 % decreasing trace of $P$ indicates increasing confidence in the estimate.
 % We cannot achieve $tr(P) = 0$ because sensor noise is always present.
-fig1 = figure; 
-subplot(211); hold on; plot(timeStamps, storeXHat(1,:), 'LineWidth', 2);
-hold on;
-plot(timeStamps, rangeTrue, 'LineWidth',  2)
-make_nice_figures(gcf, gca, 18, [], 'Time (h)', 'Range $\hat{x}_1 = r$ (km)', 'Range and Rate', [],[],[],[]);
+figure; 
+subplot(211); hold on; plot(timeStamps, storeXHat(1,:), 'LineWidth', 2)
+title('State estimate mean $\hat{x}_1$ (position)', 'Interpreter', 'latex', 'FontSize', 14)
+xlabel('Time (s)', 'Interpreter', 'latex', 'FontSize', 12);
+ylabel('$\hat{x}_1$ (m)', 'Interpreter', 'latex', 'FontSize', 12);
 
 subplot(212); hold on; plot(timeStamps, storeXHat(2,:), 'LineWidth', 2)
-make_nice_figures(gcf, gca, 18, [], 'Time (h)', 'Range rate $\hat{x}_2 = \dot{r}$ (km/hr)', 'Range and Rate', [],[],[],[]);
-
-return
+title('State estimate mean $\hat{x}_2$ (speed)', 'Interpreter', 'latex', 'FontSize', 14)
+xlabel('Time (s)', 'Interpreter', 'latex', 'FontSize', 12);
+ylabel('$\hat{x}_2$ (m/s)', 'Interpreter', 'latex', 'FontSize', 12);
 
 
 figure;
