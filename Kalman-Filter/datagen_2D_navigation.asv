@@ -102,8 +102,8 @@ measuredVelocity			= (xSim(3:100:end, 3:4))' + RVel*randn(2, length(timeStampsVe
 measuredAcceleration		= acc(:, 1:10:end) + RAcc*randn(2, length(timeStampsAcc));
 
 save assignment3_problem2.mat measuredAcceleration measuredPosition ...
-	measuredVelocity stdDevPos stdDevAcc stdDevVel ...
-	timeStampsAcc timeStampsVel timeStampsPosn
+	measuredVelocity ...
+	timeStamps nTimeStamps stdDevPos stdDevPos stdDevVel
 % 	groundTruthAcceleration groundTruthVelocity groundTruthPosition ...
 	
 
@@ -133,14 +133,14 @@ make_nice_figures(gcf, gca, 14, 'Position', '$x$ (m)', '$y$ (m)', [], [], [], []
 clear variables; close all; clc
 
 p0	= [10; 10];		% position, m
-v0	= [-1.5; 2];		% velocity, m/s
+v0	= [1; 0];		% velocity, m/s
 
 dt_			= 0.01;
 timeStamps	= 0:dt_:10;		% s
 nTimeStamps	= length(timeStamps);
 acc			= zeros(2, nTimeStamps);
-acc(1, :)	= 1.7*(2*sin(5*timeStamps) + 2.8*cos(1.8*timeStamps));
-acc(2, :)	= 1.9*sin(5*timeStamps) + 3.1*cos(2.5*timeStamps) - 1*cos(sin(5*timeStamps));
+acc(1, :)	= sin(timeStamps) + 2*cos(2*timeStamps);
+acc(2, :)	= 0.5 + 1*sin(4*timeStamps) + 1*cos(2.5*timeStamps);
 
 [~, xSim]	= ode45(@(t,x) kinematics2D(t, x, acc, nTimeStamps, dt_), ...
 	timeStamps, [p0; v0]);	
