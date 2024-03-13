@@ -15,7 +15,7 @@ ax_.FontSize	= fontSize_;
 ax_.FontName	= 'Times New Roman';
 ax_.TickLabelInterpreter = 'latex';
 if numel(axTitle_)
-	ax_.Title		= axTitle_;
+	ax_.Title.String= axTitle_;
 end
 if numel(xLabel_)
 	ax_.XLabel.String = xLabel_;
