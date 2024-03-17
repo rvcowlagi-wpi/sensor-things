@@ -4,11 +4,6 @@
 clear variables; close all; clc
 
 %%
-% Load given data file; it must be in the same folder as this file.
-% In practice, data are not available prerecorded like this example.
-% Instead, data are received in real time.
-% This data file loads the following variables with self-evident meanings:
-% |time_stamps|, |accelerometer|, |gps_position|, and |gps_speed.|
 load data_2D_RT_tracker.mat
 
 %% Error Covariances
@@ -66,15 +61,9 @@ storeInnov	= zeros(2, nTimeStamps);
 storeXHat(:, 1)		= xHat;
 storePTrace(:, 1)	= trace(P);
 storeP(:, 1)		= reshape(P, 4, 1); 
-%%
-% The |reshape| command in the previous line stores the matrix P as a 4x1
-% array for convenience. Otherwise we would need a three-dimensional array.
 
 %% Run Kalman Filter Iterations
 %%
-% There are as many iterations as time stamps, minus 1 because we
-% initialize using data at the first time stamp data. Think of the
-% iteration variable |m1| = $k-1.$
 for m1 = 1:(nTimeStamps-1)
 %%
 % Prediction equations to get a preliminary estimate and error covariance.
@@ -172,3 +161,7 @@ plot(timeStamps, (-2/sqrt(nTimeStamps))*ones(size(timeStamps)), 'LineWidth', 2, 
 title('Innovations autocorrelation', 'Interpreter', 'latex', 'FontSize', 14)
 xlabel('Time (s)', 'Interpreter', 'latex', 'FontSize', 12);
 ylabel('Innovation', 'Interpreter', 'latex', 'FontSize', 12);
+
+
+
+
