@@ -9,10 +9,10 @@ load data_2D_RT_tracker.mat
 nStates = 4;	% States are r, rDot, theta, thetaDot
 nMeas	= 2;	% Measurements are r, theta
 
-V		= 300;
+V		= 50;
 
 %% Error Covariances
-Q	= [(100)^2 0; 0 (20*pi/180)^2];
+Q	= 20*[(1E-2)^2 0; 0 (1E-2*pi/180)^2];
 R	= [0.3^2 0; 0 (2*pi/180)^2];
 
 %% Time Step and Interval of Interest
@@ -30,7 +30,7 @@ G	= [ [0; dt] zeros(2, 1); zeros(2, 1) [0; dt] ];
 C	= [1 0 0 0; 0 0 1 0];
 
 %% Initialization
-xHat	= [zRange(1); 0; zBear(1); 0];	
+xHat	= [zRange(1); V; zBear(1); -V/zRange(1)];	
 P		= diag([R(1,1), 0.1, R(2,2), 0]);
 % 
 % [PSteadyState,~,~]	= idare(A', C', (G*Q*G'), R, [], []);
@@ -41,7 +41,7 @@ storeXHat	= zeros(nStates, nTimeStamps);
 storeP		= zeros(nStates^2, nTimeStamps);
 storePTrace	= zeros(1, nTimeStamps);
 storeInnov	= zeros(nMeas, nTimeStamps);
-storeInnovCovar	= zeros(nMeas, nTimeStamps);
+storeInnovCovar	= zeros(nMeas^2, nTimeStamps);
 
 %%
 storeXHat(:, 1)		= xHat;
@@ -53,9 +53,11 @@ for m1 = 1:(nTimeStamps-1)
 
 	%----- Prediction equations to get a preliminary estimate and error covariance.
 	u			= 0;
-	A			= jacobianA(xHat, V);
+	A			= eye(nStates) + jacobianA(xHat, V)*dt;
 
-	xHatMinus	= xHat + A*dt*xHat;		% First-order Euler approximation
+% 	xHatMinus	= xHat + polar_kinematics_2D([], xHat, V)*dt;				% First-order Euler approximation
+	[~, xSim]	= ode45(@(t,x) polar_kinematics_2D(t,x, V), [0 dt], xHat);	% RK4
+	xHatMinus	= xSim(end, :)';
 	PMinus		= A*P*A' + G*Q*G';
 
 	%----- Compute Kalman gain. Note the use of |/| command instead of inverse.
@@ -107,7 +109,7 @@ make_nice_figures(gcf, gca, 18, [], 'Time (h)', ...
 
 subplot(223); hold on; plot(timeStamps, storeXHat(3,:)*180/pi, 'LineWidth', 2);
 hold on;
-plot(timeStamps, bearTrue, 'LineWidth',  2)
+plot(timeStamps, bearTrue*180/pi, 'LineWidth',  2)
 make_nice_figures(gcf, gca, 18, [], 'Time (h)', ...
 	'Range $\hat{x}_3 = \theta$ (deg)', 'Bearing and Rate', [],[],[],[]);
 
@@ -135,7 +137,7 @@ plot(timeStamps, storeInnov(1, :), 'LineWidth', 2); hold on;
 ax = gca; ax.ColorOrderIndex = 1;
 plot(timeStamps, 2*(storeInnovCovar(1,:).^0.5), ...
 	'LineWidth', 2, 'LineStyle', '--'); ax.ColorOrderIndex = 1;
-plot(timeStamps, -2*(storeInnovCovar(4,:).^0.5), ...
+plot(timeStamps, -2*(storeInnovCovar(1,:).^0.5), ...
 	'LineWidth', 2, 'LineStyle', '--')
 
 subplot(122)
@@ -165,20 +167,16 @@ ylabel('Innovation', 'Interpreter', 'latex', 'FontSize', 12);
 function xDot = polar_kinematics_2D(t_, x_, V_)
 	xDot	= zeros(4, 1);
 
-	xDot(1) = x_(2);
-	xDot(3)	= x_(4);
+% 	xDot(1) = x_(2);
+% 	xDot(3)	= x_(4);
+	xDot(1)	= V_*cos(x_(3));
+	xDot(3)	= -V_*sin(x_(3)) / x_(1);
 	xDot(2)	= -V_*x_(4)*sin(x_(3));
 	xDot(4)	= V_*x_(2)*sin(x_(3)) / (x_(1)^2) - V_*x_(4)*cos(x_(3)) / x_(1);
 end
 
-function jacA = jacobianA(x_, V_)
-	jacA = zeros(4);
-	jacA(1, :)	= [0 1 0 0];
-	jacA(3, :)	= [0 0 0 1];
-	jacA(2, :)	= V_*[0 0 -x_(4)*cos(x_(3)) -sin(x_(3))];
-	jacA(4, :)	= V_*[ ...
-		-2*x_(2)*sin(x_(3))/(x_(1))^3 - x_(4)*cos(x_(3))/(x_(1)^2) ...
-		sin(x_(3))/(x_(1)^2) ...
-		x_(2)*cos(x_(3))/(x_(1)^2) + x_(4)*sin(x_(3))/x_(1) ...
-		-cos(x_(3)) / x_(1)];
+function xSigma = generate_sigma_points(xHat_, PX_)
+	lam0 = 1/3;
+
+
 end

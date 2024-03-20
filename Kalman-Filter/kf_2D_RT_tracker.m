@@ -138,7 +138,7 @@ make_nice_figures(gcf, gca, 18, [], 'Time (h)', ...
 
 subplot(223); hold on; plot(timeStamps, storeXHat(3,:)*180/pi, 'LineWidth', 2);
 hold on;
-plot(timeStamps, bearTrue, 'LineWidth',  2)
+plot(timeStamps, bearTrue*180/pi, 'LineWidth',  2)
 make_nice_figures(gcf, gca, 18, [], 'Time (h)', ...
 	'Range $\hat{x}_3 = \theta$ (deg)', 'Bearing and Rate', [],[],[],[]);
 
