@@ -51,6 +51,9 @@ storeP(:, 1)		= reshape(P, nStates^2, 1);
 %% Run Kalman Filter Iterations
 for m1 = 1:(nTimeStamps-1)
 
+	%----- Generate sigma points and propagate through system equations
+	xSigma		= generate_sigma_points(xHat, P);
+
 	%----- Prediction equations to get a preliminary estimate and error covariance.
 	u			= 0;
 	A			= eye(nStates) + jacobianA(xHat, V)*dt;
@@ -175,8 +178,16 @@ function xDot = polar_kinematics_2D(t_, x_, V_)
 	xDot(4)	= V_*x_(2)*sin(x_(3)) / (x_(1)^2) - V_*x_(4)*cos(x_(3)) / x_(1);
 end
 
-function xSigma = generate_sigma_points(xHat_, PX_)
-	lam0 = 1/3;
+function xSigma_ = generate_sigma_points(xHat_, PX_)
+	lam0	= 1/3;
+	nX_		= numel(xHat_);
 
+	S	= chol(nX*P0 / (1 - lam0));
+
+	xSigma_ = zeros(nX_, 2*nX_);
+	for m1 = 1:nX_
+		xSigma_(:, m1)		= xHat_ + S(m1, :)';
+		xSigma_(:, m1+nX_)	= xHat_ - S(m1, :)';
+	end
 
 end
