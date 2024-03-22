@@ -1,18 +1,22 @@
-%% Kalman Filter implementation for 2D Range-Bearing Tracking
+function ukf_2D_RT_tracker()
+
+%% Unscented Kalman Filter implementation for 2D Range-Bearing Tracking
 % Copy-pasted from 1D navigation; fix comments later
 
-clear variables; close all; clc
+close all; clc
 
 %%
-load data_2D_RT_tracker.mat
+load data_2D_RT_tracker.mat bearTrue rangeTrue timeStamps zBear zRange
 
-nStates = 4;	% States are r, rDot, theta, thetaDot
-nMeas	= 2;	% Measurements are r, theta
+nStates = 4;		% States are r, rDot, theta, thetaDot
+nMeas	= 2;		% Measurements are r, theta
+nProcNoise = 2;		% Say we consider noise in rDot and thetaDot processes
+nXAug	= nStates + nProcNoise + nMeas;
 
 V		= 50;
 
 %% Error Covariances
-Q	= 20*[(1E-2)^2 0; 0 (1E-2*pi/180)^2];
+Q	= [(1E-2)^2 0; 0 (1E-2*pi/180)^2];
 R	= [0.3^2 0; 0 (2*pi/180)^2];
 
 %% Time Step and Interval of Interest
@@ -26,12 +30,13 @@ dt	= timeStamps(2) - timeStamps(1);
 nTimeStamps = length(timeStamps);
 
 %% Predictive Model and Measurement Model
-G	= [ [0; dt] zeros(2, 1); zeros(2, 1) [0; dt] ];
+% G	= [ [0; dt] zeros(2, 1); zeros(2, 1) [0; dt] ];
+% Linearized G not needed in UKF
 C	= [1 0 0 0; 0 0 1 0];
 
 %% Initialization
 xHat	= [zRange(1); V; zBear(1); -V/zRange(1)];	
-P		= diag([R(1,1), 0.1, R(2,2), 0]);
+P		= diag([R(1,1), 0.1, R(2,2), 0.1]);
 % 
 % [PSteadyState,~,~]	= idare(A', C', (G*Q*G'), R, [], []);
 % PSteadyStateStore	= reshape(PSteadyState, nStates^2, 1);
@@ -48,32 +53,78 @@ storeXHat(:, 1)		= xHat;
 storePTrace(:, 1)	= trace(P);
 storeP(:, 1)		= reshape(P, nStates^2, 1); 
 
+xSigma				= zeros(nStates, 2*nXAug);
+zSigma				= zeros(nMeas, 2*nXAug);
+lamUT0				= 1/3;
+lamUT				= 1 / (3*nXAug);
+
 %% Run Kalman Filter Iterations
 for m1 = 1:(nTimeStamps-1)
 
 	%----- Generate sigma points and propagate through system equations
-	xSigma		= generate_sigma_points(xHat, P);
-
+	PXAug		= blkdiag(P, Q, R);
+	xAugSigma0	= [xHat; zeros(nProcNoise, 1); zeros(nMeas, 1)];
+	xSigma0		= one_step_update(...
+		xAugSigma0(1:nStates), ...
+		xAugSigma0(nStates+1 : nStates+nProcNoise));
+	xAugSigma	= generate_sigma_points(xAugSigma0, PXAug);
+	for m2 = 1:2*nXAug
+		xSigma(:, m2)	= one_step_update(...
+			xAugSigma(1:nStates, m2), ...									% State
+			xAugSigma(nStates+1 : nStates+nProcNoise, m2) ...				% Process noise
+			);
+	end
+	
 	%----- Prediction equations to get a preliminary estimate and error covariance.
-	u			= 0;
-	A			= eye(nStates) + jacobianA(xHat, V)*dt;
+% 	u			= 0;
+% 	A			= eye(nStates) + jacobianA(xHat, V)*dt;
+% 	xHatMinus	= one_step_update(xkMinus1_);
+% 	PMinus		= A*P*A' + G*Q*G';
+	% The equations above are EKF update equations, for comparison
 
-% 	xHatMinus	= xHat + polar_kinematics_2D([], xHat, V)*dt;				% First-order Euler approximation
-	[~, xSim]	= ode45(@(t,x) polar_kinematics_2D(t,x, V), [0 dt], xHat);	% RK4
-	xHatMinus	= xSim(end, :)';
-	PMinus		= A*P*A' + G*Q*G';
+	%----- Predictive updates using sigma points weighted sum
+	% Leave the process noise, take the states 
+	%						-- Clemenza
+	xHatMinus	= lamUT0*xSigma0 + lamUT*sum(xSigma, 2);
+	PMinus		= lamUT0*(xSigma0 - xHatMinus)*(xSigma0 - xHatMinus)';
+	for m2 = 1:2*nXAug
+		PMinus	= PMinus + ...
+			lamUT*(xSigma(:, m2) - xHatMinus)*(xSigma(:, m2) - xHatMinus)';	% Note the transpose at the end
+	end
+
+	%----- Measurement model applied to propagated sigma points
+	zSigma0		= measurement_model(...
+		xSigma0, xAugSigma0(nStates+nProcNoise+1 : nXAug));
+	for m2 = 1:2*nXAug
+		zSigma(:, m1)	= measurement_model(...
+			xAugSigma(1:nStates, m2), ...									% State
+			xAugSigma(nStates+nProcNoise+1 : nXAug, m2));					% Process noise
+	end
+	zHatMinus	= lamUT0*zSigma0 + lamUT*sum(zSigma, 2);
+
+	%----- Error covariance and cross-covariance from sigma points
+	PZZ			= lamUT0*(zSigma0 - zHatMinus)*(zSigma0 - zHatMinus)';		% We don't need to do this if meas. model is linear
+	PXZ			= lamUT0*(xSigma0 - xHatMinus)*(zSigma0 - zHatMinus)';
+	for m2 = 1:2*nXAug
+		PZZ	= PZZ + ...
+			lamUT*(zSigma(:, m2) - zHatMinus)*(zSigma(:, m2) - zHatMinus)';	
+		PXZ	= PXZ + ...
+			lamUT*(xSigma(:, m2) - xHatMinus)*(zSigma(:, m2) - zHatMinus)';	
+	end
 
 	%----- Compute Kalman gain. Note the use of |/| command instead of inverse.
-	L			= (PMinus * C') / (C * PMinus * C' + R );
+% 	L			= (PMinus * C') / (C * PMinus * C' + R );					% This is the "usual" equation when meas. model is linear
+	L			= PXZ / PZZ;
 	
 	%----- Measurement update
 	z			= [zRange(m1 + 1); zBear(m1 + 1)];
-	thisInnov	= z - C*xHatMinus;
+	thisInnov	= z - zHatMinus;
 	
 	xHat		= xHatMinus + L*(thisInnov);
-	P			= (eye(nStates) - L*C)*PMinus;
+% 	P			= (eye(nStates) - L*C)*PMinus;								% This is the usual equation
+	P			= PMinus - L*PZZ*L';										% Identical to the previous equation
 
-	thisInnovCovar		= C * P * C' + R;
+	thisInnovCovar		= PZZ; % ****** confirm this *****
 	
 	%----- Store results
 	storeXHat(:, m1+1)		= xHat;
@@ -167,27 +218,47 @@ ylabel('Innovation', 'Interpreter', 'latex', 'FontSize', 12);
 
 
 %%
-function xDot = polar_kinematics_2D(t_, x_, V_)
-	xDot	= zeros(4, 1);
+	function xk_ = one_step_update(xkMinus1_, wkMinus1_)
+		xk_ = xkMinus1_ + ...
+			system_dynamics_continuous([], xkMinus1_, wkMinus1_)*dt;		% First-order Euler approximation
 
-% 	xDot(1) = x_(2);
-% 	xDot(3)	= x_(4);
-	xDot(1)	= V_*cos(x_(3));
-	xDot(3)	= -V_*sin(x_(3)) / x_(1);
-	xDot(2)	= -V_*x_(4)*sin(x_(3));
-	xDot(4)	= V_*x_(2)*sin(x_(3)) / (x_(1)^2) - V_*x_(4)*cos(x_(3)) / x_(1);
-end
+		% Alternative to Euler approximation: RK4 (need to fix code to
+		% accommodate w)
+		% [~, xSim]	= ode45(@polar_kinematics_2D(t,x), [0 dt], xkMinus1_);
+		% xk_	= xSim(end, :)';
+	end
 
-function xSigma_ = generate_sigma_points(xHat_, PX_)
-	lam0	= 1/3;
-	nX_		= numel(xHat_);
+	function zk_ = measurement_model(xk_, vk_)
+		zk_ = C*xk_ + vk_;													% Linear model in this example
+		% We don't really need the UT for the measurement update in this
+		% specific example because the measurement model is linear
+	end
+	
+	function xDot = system_dynamics_continuous(t_, x_, w_)
+		xDot	= zeros(4, 1);
 
-	S	= chol(nX*P0 / (1 - lam0));
-
-	xSigma_ = zeros(nX_, 2*nX_);
-	for m1 = 1:nX_
-		xSigma_(:, m1)		= xHat_ + S(m1, :)';
-		xSigma_(:, m1+nX_)	= xHat_ - S(m1, :)';
+		%----- Range-bearing kinematics
+		% For a target moving at a constant velocity along
+		% the 1st Cartesian axis
+	
+	% 	xDot(1) = x_(2);
+	% 	xDot(3)	= x_(4);
+		xDot(1)	= V*cos(x_(3));
+		xDot(3)	= -V*sin(x_(3)) / x_(1);
+		xDot(2)	= -V*x_(4)*sin(x_(3)) + w_(1);
+		xDot(4)	= V*x_(2)*sin(x_(3)) / (x_(1)^2) - V*x_(4)*cos(x_(3)) / x_(1) + w_(2);
+	end
+	
+	function xSigma_ = generate_sigma_points(xBar_, PX_)
+		nX_		= numel(xBar_);												% In the UKF, the augmented state is different from the usual state
+		S		= chol(nX_*PX_ / (1 - lamUT0));
+	
+		xSigma_ = zeros(nX_, 2*nX_);
+		for m10 = 1:nX_
+			xSigma_(:, m10)			= xBar_ + S(m10, :)';
+			xSigma_(:, m10 + nX_)	= xBar_ - S(m10, :)';
+		end
+	
 	end
 
 end
