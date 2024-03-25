@@ -16,7 +16,7 @@ nXAug	= nStates + nProcNoise + nMeas;
 V		= 50;
 
 %% Error Covariances
-Q	= [(1E-2)^2 0; 0 (1E-2*pi/180)^2];
+Q	= 0.1*[(1E-2)^2 0; 0 (1E-2*pi/180)^2];
 R	= [0.3^2 0; 0 (2*pi/180)^2];
 
 %% Time Step and Interval of Interest
@@ -56,7 +56,7 @@ storeP(:, 1)		= reshape(P, nStates^2, 1);
 xSigma				= zeros(nStates, 2*nXAug);
 zSigma				= zeros(nMeas, 2*nXAug);
 lamUT0				= 1/3;
-lamUT				= 1 / (3*nXAug);
+lamUT				= (1 - lamUT0) / (2*nXAug);
 
 %% Run Kalman Filter Iterations
 for m1 = 1:(nTimeStamps-1)
@@ -96,7 +96,7 @@ for m1 = 1:(nTimeStamps-1)
 	zSigma0		= measurement_model(...
 		xSigma0, xAugSigma0(nStates+nProcNoise+1 : nXAug));
 	for m2 = 1:2*nXAug
-		zSigma(:, m1)	= measurement_model(...
+		zSigma(:, m2)	= measurement_model(...
 			xAugSigma(1:nStates, m2), ...									% State
 			xAugSigma(nStates+nProcNoise+1 : nXAug, m2));					% Process noise
 	end
@@ -124,8 +124,8 @@ for m1 = 1:(nTimeStamps-1)
 % 	P			= (eye(nStates) - L*C)*PMinus;								% This is the usual equation
 	P			= PMinus - L*PZZ*L';										% Identical to the previous equation
 
-	thisInnovCovar		= PZZ; % ****** confirm this *****
-	
+	thisInnovCovar		= PZZ; 
+
 	%----- Store results
 	storeXHat(:, m1+1)		= xHat;
 	storeP(:, m1+1)			= reshape(P, nStates^2, 1);
@@ -155,32 +155,32 @@ subplot(221); hold on; plot(timeStamps, storeXHat(1,:), 'LineWidth', 2);
 hold on;
 plot(timeStamps, rangeTrue, 'LineWidth',  2)
 make_nice_figures(gcf, gca, 18, [], 'Time (h)', ...
-	'Range $\hat{x}_1 = r$ (km)', 'Range and Rate', [],[],[],[]);
+	'Range $\hat{x}_1 = r$ (km)', 'Range and Rate', [1.1 0.4 0.5*[1 1]],[],[],[]);
 
 subplot(222); hold on; plot(timeStamps, storeXHat(2,:), 'LineWidth', 2)
 make_nice_figures(gcf, gca, 18, [], 'Time (h)', ...
-	'Range rate $\hat{x}_2 = \dot{r}$ (km/hr)', 'Range and Rate', [],[],[],[]);
+	'Range rate $\hat{x}_2 = \dot{r}$ (km/hr)', 'Range and Rate', [1.1 0.4 0.5*[1 1]],[],[],[]);
 
 subplot(223); hold on; plot(timeStamps, storeXHat(3,:)*180/pi, 'LineWidth', 2);
 hold on;
 plot(timeStamps, bearTrue*180/pi, 'LineWidth',  2)
 make_nice_figures(gcf, gca, 18, [], 'Time (h)', ...
-	'Range $\hat{x}_3 = \theta$ (deg)', 'Bearing and Rate', [],[],[],[]);
+	'Range $\hat{x}_3 = \theta$ (deg)', 'Bearing and Rate', [1.1 0.4 0.5*[1 1]],[],[],[]);
 
 subplot(224); hold on; plot(timeStamps, storeXHat(4,:)*180/pi, 'LineWidth', 2)
 make_nice_figures(gcf, gca, 18, [], 'Time (h)', ...
-	'Range rate $\hat{x}_4 = \dot{\theta}$ (deg/hr)', 'Bearing and Rate', [],[],[],[]);
+	'Range rate $\hat{x}_4 = \dot{\theta}$ (deg/hr)', 'Bearing and Rate', [1.1 0.4 0.5*[1 1]],[],[],[]);
 
 
 
 
 fig2 = figure;
 plot(timeStamps, storePTrace, 'LineWidth', 2);
-make_nice_figures(gcf, gca, 18, [], 'Time (h)', 'tr$(P)$', 'Trace', [],[],[],[]);
+make_nice_figures(gcf, gca, 18, [], 'Time (h)', 'tr$(P)$', 'Trace', [1.15 0.45 0.5*[1 1]],[],[],[]);
 
 fig3 = figure;
 plot(timeStamps, storeP, 'LineWidth', 2); hold on;
-make_nice_figures(gcf, gca, 18, [], 'Time (h)', '$p_{ij}$', 'Trace', [],[],[],[]);
+make_nice_figures(gcf, gca, 18, [], 'Time (h)', '$p_{ij}$', 'E.E. Covariance', [1.2 0.5 0.5*[1 1]],[],[],[]);
 
 ylabel('$p_{ij}$', 'Interpreter', 'latex', 'FontSize', 12);
 

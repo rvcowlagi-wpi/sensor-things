@@ -4,14 +4,14 @@ close all; clc;
 
 aSys	= 1;
 dt_		= 0.1;
-dx_		= 0.01;
+dx_		= 0.5;
 
 xHat	= 1;
 P		= 0.1;
 Q		= 0.1;
 G		= 1;
 
-nParticles	= 1000;
+nParticles	= 5000;
 particles	= xHat + sqrt(P)*randn(1, nParticles);
 
 figure;
@@ -31,15 +31,16 @@ for m1 = 1:6
 	
 	particleDensity		= zeros(length(xPlot), 1);
 	for m2 = 1:nParticles
-		xIndex		= (xPlot >= particles(m2)) & (xPlot <= particles(m2) + dx_);
-		particleDensity = particleDensity + weight_* xPlot(xIndex);
+		xIndex		= (xPlot >= particles(m2) - dx_ / 2) & (xPlot <= particles(m2) + dx_ / 2);
+		particleDensity(xIndex) = particleDensity(xIndex) + weight_/dx_;
 	end
 	
 	
 	yPlot	= normpdf(xPlot, xHat, sqrt(P));
 	axString= ['$k = ' num2str(m1) '$'];
-	subplot(2, 3, m1); plot(xPlot, yPlot, 'LineWidth', 3); hold on;
-	plot(xPlot, particleDensity, 'LineWidth', 2)
+	subplot(2, 3, m1);
+	plot(xPlot, particleDensity, '.'); hold on;
+	plot(xPlot, yPlot, 'LineWidth', 3);
 	make_nice_figures(gcf, gca, 14, axString, '$x$', '$p_X(x)$', [], [], [], [-2 3], [0 1.1])
 end
 
