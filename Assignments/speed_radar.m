@@ -16,11 +16,12 @@ ProbX	= integral(@(x) posterior_X(x, z1), x1, infty_);					% P[X >= 50]
 extAP	= roots([lambda_ 0 100*z1 -100*z1^2]);
 xMAP	= real(extAP(3))
 xLSEE	= integral(@(x) x.*posterior_X(x, z1), 0, infty_)
-xLinLSEE= (1 / lambda_) + ( (1 / lambda_^2) / (alpha_/lambda_ + 1 / lambda_^2) ) * (z1 - (1 / lambda_))
+xLinLSEE= (1 / lambda_) + ( (1 / lambda_^2) / ...
+	(alpha_/lambda_ + 1 / lambda_^2) ) * (z1 - (1 / lambda_))
 
 
 %% Plots
-figure;
+% figure;
 xPlot	= linspace(0, 100, 1000);
 plot(xPlot, prior_X(xPlot), 'LineWidth', 2); hold on;
 plot(xPlot, posterior_X(xPlot, z1), 'LineWidth', 2);
@@ -29,28 +30,8 @@ plot(z1*ones(size(xPlot)), zPlot, 'LineWidth', 2, 'LineStyle','--')
 plot(xMAP*ones(size(xPlot)), zPlot, 'LineWidth', 2, 'LineStyle','--')
 plot(xLSEE*ones(size(xPlot)), zPlot, 'LineWidth', 2, 'LineStyle','--')
 plot(xLinLSEE*ones(size(xPlot)), zPlot, 'LineWidth', 2, 'LineStyle','--')
-make_nice_figures(gcf, gca, 18, [], '$x$', '$f_X(x)$', 'PDF', [], [], [], []);
+make_nice_figures(gcf, gca, 18, [], '$x$ (km/hr)', '$f_X(x)$', 'PDF', [], [], [], []);
 legend('Prior', 'Posterior', 'Measurement', 'MAP', 'LSEE', 'Linear LSEE')
-
-
-
-% % Measurement error has speed-dependent variance
-% 
-% xSS	= linspace(0, 400, 100);
-% zSS	= linspace(-50, 400, 100);
-% 
-% infty = 1000;	% Practical "infinity"
-% 
-% [xMesh, yMesh]	= meshgrid(xSS, zSS);
-% 
-% fXPrior			= prior_X(xSS);
-% fYGivenX		= conditional_YGivenX(xSS(100), zSS);
-% fJoint			= joint_XY(xMesh, yMesh);
-% 
-% zStar			= 50;
-% xStar			= 60;
-% integral(@(x) posterior_XGivenY(x, zStar), xStar, infty)
-% % This is P[ X >= xBar | y = yMeas ]
 
 
 %% Sanity check; these should all be 1
@@ -58,8 +39,6 @@ fprintf('\n\n ---- Sanity Check ---- \n')
 integral(@prior_X, 0, infty_)
 integral(@(y) conditional_ZGivenX(x1, y), 0, infty_)
 integral(@marginal_Y, -infty_, infty_)
-
-
 
 	function pdf_ = conditional_ZGivenX(x_, z_)
 		pdf_ = (1 ./ (sqrt(2*pi) .* (alpha_*x_)) ) .* ...
