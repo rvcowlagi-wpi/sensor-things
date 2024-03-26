@@ -8,7 +8,6 @@ alpha_	= 0.1;			% std. dev. is alpha_*x
 infty_	= 1000;			% Practically infinite
 
 %% Posterior
-
 z1		= 40;			% km/hr
 x1		= 50;			% km/hr
 ProbX	= integral(@(x) posterior_X(x, z1), x1, infty_);					% P[X >= 50]
@@ -21,11 +20,10 @@ xLinLSEE= (1 / lambda_) + ( (1 / lambda_^2) / ...
 
 
 %% Plots
-% figure;
+figure;
 xPlot	= linspace(0, 100, 1000);
 plot(xPlot, prior_X(xPlot), 'LineWidth', 2); hold on;
 plot(xPlot, posterior_X(xPlot, z1), 'LineWidth', 2);
-zPlot	= linspace(0, 1.1*max(posterior_X(xPlot, z1)), 1000);
 plot(z1*ones(size(xPlot)), zPlot, 'LineWidth', 2, 'LineStyle','--')
 plot(xMAP*ones(size(xPlot)), zPlot, 'LineWidth', 2, 'LineStyle','--')
 plot(xLSEE*ones(size(xPlot)), zPlot, 'LineWidth', 2, 'LineStyle','--')
@@ -39,6 +37,8 @@ fprintf('\n\n ---- Sanity Check ---- \n')
 integral(@prior_X, 0, infty_)
 integral(@(y) conditional_ZGivenX(x1, y), 0, infty_)
 integral(@marginal_Y, -infty_, infty_)
+
+%% Functions
 
 	function pdf_ = conditional_ZGivenX(x_, z_)
 		pdf_ = (1 ./ (sqrt(2*pi) .* (alpha_*x_)) ) .* ...
