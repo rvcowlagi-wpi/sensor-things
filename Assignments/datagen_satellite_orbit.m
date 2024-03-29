@@ -1,14 +1,31 @@
-%% Asynchronous, multi-rate position, velocity, and time
-clear variables; close all; clc
+function datagen_sat()
 
+%% Constants and parameters
+close all; clc
 
-p0	= [8; 9];					% position, km
-v0	= 40;						% speed, km/hr
-psi0= 45*pi/180;				% heading angle, rad
-
-dt_			= 0.001;
-timeStamps	= 0:dt_:0.75;			% hr
+dt_			= 0.1;
+timeStamps	= 0:dt_:(0.01*60*60);			% s
 nTimeStamps	= length(timeStamps);
+
+REarth		= 6378;				% km
+MU_			= 398600;			% km^3 / s^2
+
+% Based on Ex 2.5 in Curtis
+eccKepler	= 0.6;				% eccentricity
+r0			= 400 + REarth;		% perigee, km
+thta0		= 0;
+spd0		= 9.7;				% km / s
+h0			= 65750;			% km^2 / s
+thtaDot0	= spd0 / r0		% rad/s
+rDot0		= 0;
+
+[~, xSim]	= ode45(@orbit_kinematics_planar, ...
+	timeStamps, [r0; rDot0; thta0; thtaDot0]);
+
+plot(timeStamps, xSim(:, 1), 'LineWidth', 2)
+
+return
+
 
 acc			= zeros(1, nTimeStamps);	% tangential acceleration, km/hr^2
 steerRate	= zeros(1, nTimeStamps);	% steering rate, rad/hr
@@ -49,7 +66,7 @@ groundTruthBearing			= atan2( groundTruthPosition(2, :), groundTruthPosition(1, 
 measuredRange	= groundTruthRange(timeIndexRT) + stdDevRange*randn(1, nTimeStampsRT);
 measuredBearing	= groundTruthBearing(timeIndexRT) + stdDevBrng*randn(1, nTimeStampsRT);
 
-save assignment3_problem4.mat measuredRange measuredBearing ...
+save assignment4_problem2.mat measuredRange measuredBearing ...
 	stdDevRange stdDevBrng timeStampsRT
 	
 
@@ -78,9 +95,14 @@ make_nice_figures(gcf, gca, 14, 'Position', '$x$ (km)', '$y$ (km)', [], [], [], 
 
 
 %%
-function xDot = kinematics2D(t_, x_, u_, nTimeStamps_, dt)
-		tIndex	= max(1, min(round(t_/dt), nTimeStamps_));
-		ut_		= u_(:, tIndex);
+	function xDot = orbit_kinematics_planar(t_, x_)							% Process noise added in discrete model, not here
+% 		tIndex	= max(1, min(round(t_/dt), nTimeStamps));
 
-		xDot	= [x_(3)*cos(x_(4)); x_(3)*sin(x_(4)); ut_(1); ut_(2)];
+		r_		= x_(1);
+		rDot	= x_(2);
+		thta_	= x_(3);
+		thtaDot	= x_(4);
+
+		xDot	= [r_; r_*(thtaDot^2) - MU_ / r_^2; thtaDot; -2*rDot*thtaDot/r_];
+	end
 end
