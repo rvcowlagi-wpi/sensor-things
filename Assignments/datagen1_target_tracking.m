@@ -22,8 +22,8 @@ steerRate	= zeros(1, nTimeStamps);	% steering rate, rad/hr
 % 		kron(10*2*pi*randn(1, 1), ones(1, accStep(1)));
 % end
 
-acc			= 8*(10*sin(18*timeStamps) + 6*cos(15*timeStamps) - 2*sin(50*timeStamps));
-steerRate	= 80*sin(80*timeStamps) + 50*cos(20*timeStamps);
+acc			= 4*(10*sin(12*timeStamps) + 6*cos(7*timeStamps) - 2*sin(35*timeStamps));
+steerRate	= 80*sin(35*timeStamps) + 50*cos(20*timeStamps);
 
 
 [~, xSim]	= ode45(@(t,x) kinematics2D(t, x, [acc; steerRate], nTimeStamps, dt_), ...
@@ -41,6 +41,7 @@ groundTruthSpeed			= xSim(:, 3)';
 groundTruthHeading			= xSim(:, 4)';
 groundTruthAcceleration		= acc;
 groundTruthSteerRate		= steerRate;
+groundTruthTimeStamps		= timeStamps;
 
 groundTruthRange			= ( (groundTruthPosition(1, :)).^2 + ...
 	(groundTruthPosition(2, :)).^2 ).^(0.5);
@@ -49,9 +50,15 @@ groundTruthBearing			= atan2( groundTruthPosition(2, :), groundTruthPosition(1, 
 measuredRange	= groundTruthRange(timeIndexRT) + stdDevRange*randn(1, nTimeStampsRT);
 measuredBearing	= groundTruthBearing(timeIndexRT) + stdDevBrng*randn(1, nTimeStampsRT);
 
-save assignment3_problem4.mat measuredRange measuredBearing ...
-	stdDevRange stdDevBrng timeStampsRT
+% save assignment3_problem4.mat measuredRange measuredBearing ...
+% 	stdDevRange stdDevBrng timeStampsRT
 	
+save assignment4_problem2.mat measuredRange measuredBearing ...
+	stdDevRange stdDevBrng timeStampsRT ...
+	groundTruthTimeStamps groundTruthAcceleration ...
+	groundTruthSpeed groundTruthHeading ... 
+	groundTruthPosition groundTruthSteerRate
+
 
 figure;
 subplot(211); plot(timeStamps, xSim(:, 1), timeStamps, xSim(:, 2), 'LineWidth', 2);
