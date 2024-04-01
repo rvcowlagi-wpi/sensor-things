@@ -22,9 +22,9 @@ xLSEE2	= integral(@(x) x.*posterior_2(x, z2), 0, a_)
 xLSEE3	= integral(@(x) x.*posterior_3(x, z3), 0, a_)
 
 %% Linear LSEE with z1
-varZ		= 
-covXZ		= []
-xLinLSEE1	= 0.5*a_ + (covXZ / varZ)*(z1 - 1);	% E[Z] = 1
+% varZ		= 
+% covXZ		= []
+% xLinLSEE1	= 0.5*a_ + (covXZ / varZ)*(z1 - 1);	% E[Z] = 1
 
 %% Sanity check; these should all be 1
 fprintf('\n\n ---- Sanity Checks (everything should be 1) ---- \n')
