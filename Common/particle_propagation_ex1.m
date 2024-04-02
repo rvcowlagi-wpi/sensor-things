@@ -14,9 +14,9 @@ G		= 1;
 
 nParticles	= 1000;
 particles	= xHat + sqrt(P)*randn(1, nParticles);
-weights_	= (1 / nParticles)*ones(1, nParticles);
+% weights_	= (1 / nParticles)*ones(1, nParticles);
 
-weights_*particles'
+% weights_*particles'
 
 figure;
 xPlot	= linspace(-2, 3, 1000);
@@ -33,16 +33,16 @@ for m1 = 1:6
 
 	for m2 = 1:nParticles
 		particles(m2)	= one_step_update(particles(m2), sqrt(Q)*randn);
-		zHati			= measurement_model(particles(m2), 0);				% assuming zero mean measurement error
-		weights_(m2)	= weights_(m2) * (1 / sqrt(2*pi*R)) * exp(-0.5*(z - zHati)^2 / R);
+% 		zHati			= measurement_model(particles(m2), 0);				% assuming zero mean measurement error
+% 		weights_(m2)	= weights_(m2) * (1 / sqrt(2*pi*R)) * exp(-0.5*(z - zHati)^2 / R);
 	end
-	weights_	= weights_ / sum(weights_);
+% 	weights_	= weights_ / sum(weights_);
 	
 	particleDensity		= zeros(length(xPlot), 1);
 	for m2 = 1:nParticles
 		xIndex		= (xPlot >= particles(m2) - dx_ / 2) & (xPlot <= particles(m2) + dx_ / 2);
-% 		particleDensity(xIndex) = particleDensity(xIndex) + (1 / nParticles)/dx_;
-		particleDensity(xIndex) = particleDensity(xIndex) + weights_(m2)/dx_;
+		particleDensity(xIndex) = particleDensity(xIndex) + (1 / nParticles)/dx_;
+% 		particleDensity(xIndex) = particleDensity(xIndex) + weights_(m2)/dx_;
 	end
 	
 	% Resampling needed

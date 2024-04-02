@@ -21,7 +21,7 @@ xi0			= [range0; velocityV(1)*cos(brng0); brng0; 0];
 [~, xiSim]	= ode45(@(t,x) polar_kinematics_2D(t,x, velocityV(1)), timeStamps, xi0);
 
 
-save data_2D_RT_tracker.mat zRange zBear timeStamps rangeTrue bearTrue
+% save data_2D_RT_tracker.mat zRange zBear timeStamps rangeTrue bearTrue
 
 fig1= figure;
 plot(timeStamps, rangeTrue, 'LineWidth', 3);% , timeStamps, zRange);
@@ -36,7 +36,11 @@ plot(timeStamps, xiSim(:, 3)*180/pi, 'LineWidth', 3)
 ax2	= gca;
 make_nice_figures(fig2, ax2, 18, [], 'Time', 'Bearing (deg)', 'Bearing', [],[],[],[]);
 
-
+figure;
+% plot(timeStamps, rangeTrue, 'LineWidth', 3);% , timeStamps, zRange);
+hold on; plot(timeStamps, xiSim(:, 3), 'LineWidth', 3)
+ax1	= gca;
+make_nice_figures(gcf, gca, 18, [], 'Time', 'Range Rate', 'Range Rate', [],[],[],[]);
 
 function xDot = polar_kinematics_2D(t_, x_, V_)
 	xDot	= zeros(4, 1);

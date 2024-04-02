@@ -16,7 +16,7 @@ nXAug	= nStates + nProcNoise + nMeas;
 V		= 50;
 
 %% Error Covariances
-Q	= 0.1*[(1E-2)^2 0; 0 (1E-2*pi/180)^2];
+Q	= [(1E-2)^2 0; 0 (1E-2*pi/180)^2];
 R	= [0.3^2 0; 0 (2*pi/180)^2];
 
 %% Time Step and Interval of Interest
@@ -65,8 +65,7 @@ for m1 = 1:(nTimeStamps-1)
 	PXAug		= blkdiag(P, Q, R);
 	xAugSigma0	= [xHat; zeros(nProcNoise, 1); zeros(nMeas, 1)];
 	xSigma0		= one_step_update(...
-		xAugSigma0(1:nStates), ...
-		xAugSigma0(nStates+1 : nStates+nProcNoise));
+		xAugSigma0(1:nStates), xAugSigma0(nStates+1 : nStates+nProcNoise));
 	xAugSigma	= generate_sigma_points(xAugSigma0, PXAug);
 	for m2 = 1:2*nXAug
 		xSigma(:, m2)	= one_step_update(...
@@ -102,6 +101,8 @@ for m1 = 1:(nTimeStamps-1)
 	end
 	zHatMinus	= lamUT0*zSigma0 + lamUT*sum(zSigma, 2);
 
+	zHatMinus	= C*xHatMinus;
+
 	%----- Error covariance and cross-covariance from sigma points
 	PZZ			= lamUT0*(zSigma0 - zHatMinus)*(zSigma0 - zHatMinus)';		% We don't need to do this if meas. model is linear
 	PXZ			= lamUT0*(xSigma0 - xHatMinus)*(zSigma0 - zHatMinus)';
@@ -113,8 +114,8 @@ for m1 = 1:(nTimeStamps-1)
 	end
 
 	%----- Compute Kalman gain. Note the use of |/| command instead of inverse.
-% 	L			= (PMinus * C') / (C * PMinus * C' + R );					% This is the "usual" equation when meas. model is linear
-	L			= PXZ / PZZ;
+	L			= (PMinus * C') / (C * PMinus * C' + R );					% This is the "usual" equation when meas. model is linear
+% 	L			= PXZ / PZZ;
 	
 	%----- Measurement update
 	z			= [zRange(m1 + 1); zBear(m1 + 1)];
@@ -136,10 +137,9 @@ end
 
 %% Innovation autocorrelation
 nTimeStamps		= length(timeStamps);
-nMeasDim		= 2;
 
 innovAutoCorr	= zeros(1, nTimeStamps);
-shiftedInnov	= zeros(nMeasDim, nTimeStamps);
+shiftedInnov	= zeros(nMeas, nTimeStamps);
 twoSigmaBd		= zeros(1, nTimeStamps);
 for m1 = 1:nTimeStamps - 10
 	shiftedInnov(:,m1+1:end)= storeInnov(:, 2:(nTimeStamps - m1 + 1));
@@ -149,38 +149,48 @@ for m1 = 1:nTimeStamps - 10
 	twoSigmaBd(m1)			= 2/sqrt(nTimeStamps - m1); 
 end
 
+%% Figures of merit of the filter
+format shortE
+
+mseeRange	= mean( (storeXHat(1,:) - rangeTrue).^2 );
+mseeBrng	= mean( (storeXHat(3,:) - bearTrue).^2 );
+
+fprintf('----- Mean of innovations autocorrelation (closer to zero is better): \n'); disp( mean(innovAutoCorr(2:end)) )
+fprintf('----- Mean square estimation error in range (closer to zero is better): \n'); disp( mseeRange )
+fprintf('----- Mean square estimation error in bearing (closer to zero is better): \n'); disp( mseeBrng )
+
 %% Plot Results
 fig1 = figure; 
 subplot(221); hold on; plot(timeStamps, storeXHat(1,:), 'LineWidth', 2);
 hold on;
 plot(timeStamps, rangeTrue, 'LineWidth',  2)
 make_nice_figures(gcf, gca, 18, [], 'Time (h)', ...
-	'Range $\hat{x}_1 = r$ (km)', 'Range and Rate', [1.1 0.4 0.5*[1 1]],[],[],[]);
+	'Range $\hat{x}_1 = r$ (km)', 'Range and Rate', [0.1 0.24 0.5*[1 1]],[],[],[]);
 
 subplot(222); hold on; plot(timeStamps, storeXHat(2,:), 'LineWidth', 2)
 make_nice_figures(gcf, gca, 18, [], 'Time (h)', ...
-	'Range rate $\hat{x}_2 = \dot{r}$ (km/hr)', 'Range and Rate', [1.1 0.4 0.5*[1 1]],[],[],[]);
+	'Range rate $\hat{x}_2 = \dot{r}$ (km/hr)', 'Range and Rate', [0.1 0.24 0.5*[1 1]],[],[],[]);
 
 subplot(223); hold on; plot(timeStamps, storeXHat(3,:)*180/pi, 'LineWidth', 2);
 hold on;
 plot(timeStamps, bearTrue*180/pi, 'LineWidth',  2)
 make_nice_figures(gcf, gca, 18, [], 'Time (h)', ...
-	'Range $\hat{x}_3 = \theta$ (deg)', 'Bearing and Rate', [1.1 0.4 0.5*[1 1]],[],[],[]);
+	'Range $\hat{x}_3 = \theta$ (deg)', 'Bearing and Rate', [0.1 0.24 0.5*[1 1]],[],[],[]);
 
 subplot(224); hold on; plot(timeStamps, storeXHat(4,:)*180/pi, 'LineWidth', 2)
 make_nice_figures(gcf, gca, 18, [], 'Time (h)', ...
-	'Range rate $\hat{x}_4 = \dot{\theta}$ (deg/hr)', 'Bearing and Rate', [1.1 0.4 0.5*[1 1]],[],[],[]);
+	'Range rate $\hat{x}_4 = \dot{\theta}$ (deg/hr)', 'Bearing and Rate', [0.1 0.24 0.5*[1 1]],[],[],[]);
 
 
 
 
 fig2 = figure;
 plot(timeStamps, storePTrace, 'LineWidth', 2);
-make_nice_figures(gcf, gca, 18, [], 'Time (h)', 'tr$(P)$', 'Trace', [1.15 0.45 0.5*[1 1]],[],[],[]);
+make_nice_figures(gcf, gca, 18, [], 'Time (h)', 'tr$(P)$', 'Trace', [0.15 0.35 0.5*[1 1]],[],[],[]);
 
 fig3 = figure;
 plot(timeStamps, storeP, 'LineWidth', 2); hold on;
-make_nice_figures(gcf, gca, 18, [], 'Time (h)', '$p_{ij}$', 'E.E. Covariance', [1.2 0.5 0.5*[1 1]],[],[],[]);
+make_nice_figures(gcf, gca, 18, [], 'Time (h)', '$p_{ij}$', 'E.E. Covariance', [0.2 0.35 0.5*[1 1]],[],[],[]);
 
 ylabel('$p_{ij}$', 'Interpreter', 'latex', 'FontSize', 12);
 
@@ -199,7 +209,7 @@ plot(timeStamps, storeInnov(2, :), 'LineWidth', 2); hold on;
 ax = gca; ax.ColorOrderIndex = 2;
 plot(timeStamps, 2*(storeInnovCovar(4, :).^0.5), ...
 	'LineWidth', 2, 'LineStyle', '--'); ax.ColorOrderIndex = 2;
-plot(timeStamps, 2*(storeInnovCovar(4, :).^0.5), ...
+plot(timeStamps, -2*(storeInnovCovar(4, :).^0.5), ...
 	'LineWidth', 2, 'LineStyle', '--')
 
 title('Innovations sequence', 'Interpreter', 'latex', 'FontSize', 14)
@@ -241,7 +251,7 @@ ylabel('Innovation', 'Interpreter', 'latex', 'FontSize', 12);
 		% For a target moving at a constant velocity along
 		% the 1st Cartesian axis
 	
-	% 	xDot(1) = x_(2);
+% 		xDot(1) = x_(2);
 	% 	xDot(3)	= x_(4);
 		xDot(1)	= V*cos(x_(3));
 		xDot(3)	= -V*sin(x_(3)) / x_(1);
@@ -251,7 +261,7 @@ ylabel('Innovation', 'Interpreter', 'latex', 'FontSize', 12);
 	
 	function xSigma_ = generate_sigma_points(xBar_, PX_)
 		nX_		= numel(xBar_);												% In the UKF, the augmented state is different from the usual state
-		S		= chol(nX_*PX_ / (1 - lamUT0));
+		S		= sqrt(nX_ / (1 - lamUT0)) * chol(PX_);
 	
 		xSigma_ = zeros(nX_, 2*nX_);
 		for m10 = 1:nX_
