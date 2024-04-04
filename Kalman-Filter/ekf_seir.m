@@ -1,5 +1,5 @@
-function ukf_seir()
-% Unscented Kalman Filter implementation for SEIR contagion model
+function ekf_seir()
+% Extended Kalman Filter implementation for SEIR contagion model
 
 close all; clc
 
@@ -11,7 +11,6 @@ nStates = 4;		% States are Susceptible, Infected, Exposed, Removed fractions
 nMeas	= 1;		% Measurement is Infected fraction
 
 nProcNoise	= 4;	% All state equations are noisy with equal variance and no correlation
-nXAug		= nStates + nProcNoise + nMeas;
 
 %----- SEIR model parameters
 % Different diseases have different coefficients
@@ -46,75 +45,31 @@ storeXHat(:, 1)		= xHat;
 storePTrace(:, 1)	= trace(P);
 storeP(:, 1)		= reshape(P, nStates^2, 1); 
 
-%% UKF initialization and weights
-xSigma				= zeros(nStates, 2*nXAug);
-zSigma				= zeros(nMeas, 2*nXAug);
-weightUT0			= 1/3;
-weightUT			= (1 - weightUT0) / (2*nXAug);
-
-%% Run UKF iterations
+%% Run EKF iterations
 for m1 = 1:(nTimeStamps-1)
 
-	%----- Generate sigma points and propagate through system equations
-	PXAug		= blkdiag(P, Q, R);
-	xAugSigma0	= [xHat; zeros(nProcNoise, 1); zeros(nMeas, 1)];			% sigma points of augmented state
+	%----- Predictive updates using system model and linearization (for covariance)
+	xHatMinus	= rk4_step( timeStamps(m1), dt_, ...
+		xHat, [], zeros(nProcNoise, 1), ...
+		@seir_dynamics, SEIRmodelParameters );								% We use RK4 for updating the mean
+	% Note that the EKF updates the mean by propagating zero noise (mean)
+	% through the system dynamics; UKF and PF propagate noise as well
 
-	xSigma0		= rk4_step( timeStamps(m1), dt_, ...
-		xAugSigma0(1:nStates), [], ...
-		xAugSigma0(nStates+1 : nStates+nProcNoise), ...
-		@seir_dynamics, SEIRmodelParameters );								% We use RK4 for one-step propagation, OK to use simpler Euler integration as well
-	
-	xAugSigma	= generate_sigma_points(xAugSigma0, PXAug);
-	for m2 = 1:2*nXAug
-		xSigma(:, m2)	= rk4_step( timeStamps(m1), dt_, ...
-			xAugSigma(1:nStates, m2), [], ...								% State
-			xAugSigma(nStates+1 : nStates+nProcNoise, m2), ...				% Process noise
-			@seir_dynamics, SEIRmodelParameters );
-	end
-	
-	%----- Predictive updates using sigma points weighted sum
-	xHatMinus	= weightUT0*xSigma0 + weightUT*sum(xSigma, 2);
-	PMinus		= weightUT0*(xSigma0 - xHatMinus)*(xSigma0 - xHatMinus)';
-	for m2 = 1:2*nXAug		% this can be vectorized by reshaping the matrix into a column vector
-		PMinus	= PMinus + ...
-			weightUT*(xSigma(:, m2) - xHatMinus)*(xSigma(:, m2) - xHatMinus)';	% Note the transpose at the end
-	end
-
-	%----- Measurement model applied to propagated sigma points
-	% We don't really need this for this particular example because the
-	% measurement model is linear; including it for the sake of example
-	zSigma0		= measurement_model(...
-		xSigma0, xAugSigma0(nStates+nProcNoise+1 : nXAug));
-	for m2 = 1:2*nXAug
-		zSigma(:, m2)	= measurement_model(...
-			xAugSigma(1:nStates, m2), ...									% State
-			xAugSigma(nStates+nProcNoise+1 : nXAug, m2));					% Measurement noise
-	end
-	zHatMinus	= weightUT0*zSigma0 + weightUT*sum(zSigma, 2);
-
-% 	zHatMinus	= C*xHatMinus;												% This is the usual when measurement model is linear
-
-	%----- Error covariance and cross-covariance from sigma points
-	PZZ			= weightUT0*(zSigma0 - zHatMinus)*(zSigma0 - zHatMinus)';		% We don't need to do this if meas. model is linear
-	PXZ			= weightUT0*(xSigma0 - xHatMinus)*(zSigma0 - zHatMinus)';
-	for m2 = 1:2*nXAug
-		PZZ	= PZZ + ...
-			weightUT*(zSigma(:, m2) - zHatMinus)*(zSigma(:, m2) - zHatMinus)';	
-		PXZ	= PXZ + ...
-			weightUT*(xSigma(:, m2) - xHatMinus)*(zSigma(:, m2) - zHatMinus)';	
-	end
+	A			= eye(nStates) + jacobianA_continuous(xHat)*dt_;
+	PMinus		= A*P*A' + Q;												% G is identity, A is the Jacobian of the discrete-time model
 
 	%----- Compute Kalman gain. Note the use of |/| command instead of inverse.
-% 	L			= (PMinus * C') / (C * PMinus * C' + R );					% This is the "usual" equation when meas. model is linear
-	L			= PXZ / PZZ;
+	PZZ			= (C * PMinus * C' + R );
+	L			= (PMinus * C') / PZZ;										% This is the "usual" equation when meas. model is linear
 	
 	%----- Measurement update
+	zHatMinus	= C*xHatMinus;												% This is the usual when measurement model is linear
 	z			= zMeas(m1 + 1);
 	thisInnov	= z - zHatMinus;
 	
 	xHat		= xHatMinus + L*(thisInnov);
-% 	P			= (eye(nStates) - L*C)*PMinus;								% This is the usual equation
-	P			= PMinus - L*PZZ*L';										% Identical to the previous equation
+	P			= (eye(nStates) - L*C)*PMinus;								% This is the usual equation
+% 	P			= PMinus - L*PZZ*L';										% Identical to the previous equation
 
 	thisInnovCovar		= PZZ; 
 
@@ -190,25 +145,15 @@ make_nice_figures(gcf, gca, 18, 'Innovations Autocorrelation', 'Time', ...
 		'Innovation a.c.', 'Innovation Autocorrelation', [0.1 0.24 0.5*[1 1]],[],[],[]);
 
 
-%% Internal functions
+%% Internal functions	
+	function jacA = jacobianA_continuous(x_)
+		jacA = zeros(4);
 
-	function zk_ = measurement_model(xk_, vk_)
-		zk_ = [0 0 1 0]*xk_ + vk_;											% Linear model in this example
-		% We don't really need the UT for the measurement update in this
-		% specific example because the measurement model is linear
-	end
-	
-	
-	function xSigma_ = generate_sigma_points(xBar_, PX_)
-		nX_		= numel(xBar_);												% In the UKF, the augmented state is different from the usual state
-		S		= sqrt(nX_ / (1 - weightUT0)) * chol(PX_);
-	
-		xSigma_ = zeros(nX_, 2*nX_);
-		for m10 = 1:nX_
-			xSigma_(:, m10)			= xBar_ + S(:, m10);
-			xSigma_(:, m10 + nX_)	= xBar_ - S(:, m10);
-		end
-	
+		jacA(1, :)	= -SEIRmodelParameters.beta*[x_(3) 0 x_(1) 0];
+		jacA(2, :)	= SEIRmodelParameters.beta*[x_(3) 0 x_(1) 0] - ...
+			SEIRmodelParameters.alpha*[0 1 0 0];
+		jacA(3, :)	= [0 SEIRmodelParameters.alpha -SEIRmodelParameters.delta 0];
+		jacA(4, :)	= [0 0 SEIRmodelParameters.delta 0];
 	end
 
 
