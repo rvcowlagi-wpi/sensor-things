@@ -44,6 +44,7 @@ storeP		= zeros(nStates^2, nTimeStamps);
 storePTrace	= zeros(1, nTimeStamps);
 storeInnov	= zeros(nMeas, nTimeStamps);
 storeInnovCovar	= zeros(nMeas^2, nTimeStamps);
+storeNormInnov	= zeros(1, nTimeStamps);
 
 %%
 storeXHat(:, 1)		= xHat;
@@ -68,12 +69,47 @@ for m1 = 1:(nTimeStamps-1)
 	
 	%----- Measurement update
 	z			= [zRange(m1 + 1); zBear(m1 + 1)];
-	thisInnov	= z - C*xHatMinus;
-	
+	thisInnov	= z - C*xHatMinus;	
+
+	thisInnovCovar		= C * PMinus * C' + R;
+	thisNormalizedInnov = ( thisInnov' / thisInnovCovar ) * thisInnov;
+
+	if m1 == 11
+		disp(PMinus)
+		disp(R)
+		disp(z)
+		disp(thisInnov)
+		disp(thisInnovCovar)
+		disp(thisNormalizedInnov)
+
+		zC1 = [19; 0.6];
+		zC2 = [18.82; 0.7];
+		zC3	= [19.1; 0.56];
+
+		zT1	= zC1 - C*xHatMinus;
+		zT2	= zC2 - C*xHatMinus;
+		zT3	= zC3 - C*xHatMinus;
+
+		ni1 = ( zT1' / thisInnovCovar ) * zT1
+		ni2 = ( zT2' / thisInnovCovar ) * zT2
+		ni3 = ( zT3' / thisInnovCovar ) * zT3
+
+		niSum	= thisNormalizedInnov + ni1 + ni3;
+		bta0 = thisNormalizedInnov / niSum
+		bta1 = ni1 / niSum
+		bta3 = ni3 / niSum
+
+		xHat0 = xHatMinus + L*(thisInnov);
+		xHat1 = xHatMinus + L*(zT1);
+		xHat3 = xHatMinus + L*(zT3);
+
+		xHat0
+		bta0*xHat0 + bta1*xHat1 + bta3*xHat3
+
+	end
+
 	xHat		= xHatMinus + L*(thisInnov);
 	P			= (eye(nStates) - L*C)*PMinus;
-
-	thisInnovCovar		= C * P * C' + R;
 	
 	%----- Store results
 	storeXHat(:, m1+1)		= xHat;
@@ -81,6 +117,7 @@ for m1 = 1:(nTimeStamps-1)
 	storePTrace(:, m1+1)	= trace(P);
 	storeInnov(:, m1+1)		= thisInnov;
 	storeInnovCovar(:, m1+1)= reshape(thisInnovCovar, nMeas^2, 1);
+	storeNormInnov(:, m1+1)	= thisNormalizedInnov;
 end
 
 %% Innovation autocorrelation
@@ -99,7 +136,7 @@ for m1 = 1:nTimeStamps - 10
 end
 
 %% Figures of merit of the filter
-format shortE
+% format shortE
 
 mseeRange	= mean( (storeXHat(1,:) - rangeTrue).^2 );
 mseeBrng	= mean( (storeXHat(3,:) - bearTrue).^2 );
@@ -175,6 +212,17 @@ plot(timeStamps, (-2/sqrt(nTimeStamps))*ones(size(timeStamps)), 'LineWidth', 2, 
 title('Innovations autocorrelation', 'Interpreter', 'latex', 'FontSize', 14)
 xlabel('Time (s)', 'Interpreter', 'latex', 'FontSize', 12);
 ylabel('Innovation', 'Interpreter', 'latex', 'FontSize', 12);
+
+
+figure;
+histogram(storeNormInnov, 'Normalization','pdf', 'NumBins', 10); hold on;
+xPlot = linspace(0, 15, 100);
+plot( xPlot, chi2pdf(xPlot, nMeas), 'LineWidth', 3);
+make_nice_figures(gcf, gca, 14, [], 'Normalized innovation', 'PDF', 'Normalized Innovation', [],[],[],[]);
+
+figure;
+plot(xPlot, chi2cdf(xPlot, nMeas), 'LineWidth', 3); grid on;
+make_nice_figures(gcf, gca, 14, [], 'Normalized innovation', 'CDF', 'Chi-square CDF', [],[],[],[]);
 
 
 %%
