@@ -19,19 +19,17 @@ SEIRmodelParameters.beta	= 0.5;
 SEIRmodelParameters.alpha	= 0.1;
 SEIRmodelParameters.delta	= 0.05;
 
-
 %----- Time stamps
 dt_	= timeStamps(2) - timeStamps(1);	% assuming uniformly spaced time stamps
 
 %% Error Covariances
-QCont	= stdDevProcNoise^2*eye(4);					% covariance matrix of the continuous process noise
 R		= (1E-2)^2;						% variance of the measurement noise
-
-Q		= 1E-4*eye(4);								% arbitrary tuning to solve the "sample impoverishment" problem
+Q		= (1E-4)*eye(4);				% arbitrary tuning to solve the "sample impoverishment" problem
 sqrtQ	= chol(Q);
+
 %% Initialization
 xHat		= [1 - zMeas(1); 0; zMeas(1); 0];		% this is model-specific; we assume Susceptible = 1 - Infected fraction; no one Exposed or Removed
-P			= 1E-3*eye(4);							% initialize based on measurement covariance
+P			= 1*eye(4);								% arbitrary
 
 storeXHat	= zeros(nStates, nTimeStamps);
 storeP		= zeros(nStates^2, nTimeStamps);
@@ -43,16 +41,17 @@ storeP(:, 1)		= reshape(P, nStates^2, 1);
 
 %% Initial particles
 
-nParticles	= 1000;
-xParticles	= xHat + chol(P)*randn(nStates, nParticles);							% Sample from the prior (assumed Gaussian)
+nParticles		= 2000;
+% xParticles	= xHat + chol(P)*randn(nStates, nParticles);					% Sample from the prior (assumed Gaussian)
+xParticles		= xHat - 0.01*ones(nStates, nParticles) + 0.01*rand(nStates, nParticles);					% Sample from the prior (assumed Gaussian)
 particleWeights = (1 / nParticles) * ones(1, nParticles);					% Initialize with uniform weights
-xResampled  = zeros(nStates, nParticles);
-weightScaling = 100;
+xResampled		= zeros(nStates, nParticles);
+weightScaling	= 1;
 
 %% Run EKF iterations
 for m1 = 1:(nTimeStamps-1)
 	procNoiseSamples	= sqrtQ * randn(nProcNoise, nParticles);
-	measNoiseSamples	= sqrt(R) * randn(nMeas, nParticles);
+% 	measNoiseSamples	= sqrt(R) * randn(nMeas, nParticles);
 
 	%----- New measurement
 	z	= zMeas(m1 + 1);
@@ -62,39 +61,40 @@ for m1 = 1:(nTimeStamps-1)
 		xNext	= rk4_step( timeStamps(m1), dt_, ...
 			xParticles(:, m2), [], procNoiseSamples(:, m2), ...
 			@seir_dynamics, SEIRmodelParameters );							% propagate through system dynamics
-		if any( isnan(xNext) )
-			xNext
-			xParticles(:, m2)
-			procNoiseSamples(:, m2)
-			fprintf('Huh?\n')
-		end
 		xParticles(:, m2) = xNext;
 
-		zHati	= measurement_model(xParticles(:, 2), measNoiseSamples(:, m2));										% then through the measurement model
+		zHati	= measurement_model(xParticles(:, m2), 0);					% expected measurement for this particle
+		% Note: this trick above of passing zero measurement noise will work only 
+		% for a measurement  model linear in the noise term. In general, for each
+		% particle, we will have to evaluate several "sub-particles" of
+		% measurements % with different noise samples, and then take the average
+		% to find the expected measurement.
+
 		particleWeights(m2)	= particleWeights(m2) * weightScaling * ...
 			(1 / sqrt(2*pi*R)) * exp(-0.5*(z - zHati)^2 / R);				% Update weights proportional to likelihood
 	end
-% 	sum(particleWeights)
 	particleWeights = particleWeights / sum(particleWeights);				% Normalize the weights to add up to 1
-	
-	
+	nEff	= 1 / sum( particleWeights.^2 );
 
 	%----- Resample particles proportional to weights and reset weights
 	% Resampling means just picking particles from the original set with
 	% replacement, with probability proportional to its weight
 
-	fprintf('Iteration number %i, max. particle weight is %f: \n', m1, max(particleWeights));
-	cumulWeights	= cumsum(particleWeights);
-	for m2 = 1:nParticles
-		a_		= rand;										% uniform random number in [0, 1]
-		pIndex	= find( (a_ <= cumulWeights), 1, "first");	% particle number for which cumulative weight first exceeds the previous random number
-		xResampled(:, m2)	= xParticles(:, pIndex);
+	if nEff < (nParticles / 10)
+		fprintf('Iteration number %i, max. particle weight is %f \n', m1, max(particleWeights));
+		cumulWeights	= cumsum(particleWeights);
+		for m2 = 1:nParticles
+			a_		= rand;										% uniform random number in [0, 1]
+			pIndex	= find( (a_ <= cumulWeights), 1, "first");	% particle number for which cumulative weight first exceeds the previous random number
+			xResampled(:, m2)	= xParticles(:, pIndex);
+		end
+		xParticles		= xResampled;
+		particleWeights = (1 / nParticles) * ones(1, nParticles);
 	end
-	xParticles = xResampled;
 
 
 
-	%----- Store results
+	%----- Summary statistics
 	% Note: the PF doesn't care about mean and covariance. It tries to
 	% approximate the entire posterior distribution of the state. But we
 	% generally keep track of the mean and covarianace summary statistics,
@@ -108,6 +108,13 @@ for m1 = 1:(nTimeStamps-1)
 		P	= P + (xParticles(:, m2) - xHat) * ((xParticles(:, m2) - xHat)'); 
 	end
 	P		= (1 / (nParticles - 1) ) * P;
+
+
+	%----- Divergence monitoring and reset
+% 	if norm( xHat ) > 10	% arbitrary number that indicates onset of filter divergence
+% 		xParticles	= [1 - zMeas(1); 0; zMeas(1); 0] + chol(1E-3*eye(4))*randn(nStates, nParticles);							% Sample from the prior (assumed Gaussian)
+% 		particleWeights = (1 / nParticles) * ones(1, nParticles);					% Initialize with uniform weights
+% 	end
 	
 	%----- Store results
 	storeXHat(:, m1+1)		= xHat;
@@ -138,13 +145,13 @@ for m1 = 1:4
 	legend('Estimated', 'True')
 
 end
-
-figure;
-plot(timeStamps, storePTrace, 'LineWidth', 2);
-make_nice_figures(gcf, gca, 18, [], 'Time', 'tr$(P)$', 'Trace', [0.15 0.35 0.5*[1 1]],[],[],[]);
-figure;
-plot(timeStamps, storeP, 'LineWidth', 2); hold on;
-make_nice_figures(gcf, gca, 18, [], 'Time', '$p_{ij}$', 'E.E. Covariance', [0.2 0.35 0.5*[1 1]],[],[],[]);
+% 
+% figure;
+% plot(timeStamps, storePTrace, 'LineWidth', 2);
+% make_nice_figures(gcf, gca, 18, [], 'Time', 'tr$(P)$', 'Trace', [0.15 0.35 0.5*[1 1]],[],[],[]);
+% figure;
+% plot(timeStamps, storeP, 'LineWidth', 2); hold on;
+% make_nice_figures(gcf, gca, 18, [], 'Time', '$p_{ij}$', 'E.E. Covariance', [0.2 0.35 0.5*[1 1]],[],[],[]);
 
 
 %% Internal functions	
