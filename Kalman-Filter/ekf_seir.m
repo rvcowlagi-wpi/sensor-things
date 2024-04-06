@@ -7,7 +7,7 @@ close all; clc
 load data_seir.mat zMeas xTrue nTimeStamps timeStamps stdDevProcNoise stdDevMeasNoise
 
 %----- Dimensions
-nStates = 4;		% States are Susceptible, Infected, Exposed, Removed fractions
+nStates = 4;		% States are Susceptible,  Exposed, Infected, Removed fractions
 nMeas	= 1;		% Measurement is Infected fraction
 
 nProcNoise	= 4;	% All state equations are noisy with equal variance and no correlation

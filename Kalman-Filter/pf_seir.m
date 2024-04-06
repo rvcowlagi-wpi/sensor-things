@@ -70,7 +70,7 @@ for m1 = 1:(nTimeStamps-1)
 		% measurements % with different noise samples, and then take the average
 		% to find the expected measurement.
 
-		particleWeights(m2)	= particleWeights(m2) * weightScaling * ...
+		particleWeights(m2)	= particleWeights(m2) *  ...
 			(1 / sqrt(2*pi*R)) * exp(-0.5*(z - zHati)^2 / R);				% Update weights proportional to likelihood
 	end
 	particleWeights = particleWeights / sum(particleWeights);				% Normalize the weights to add up to 1
