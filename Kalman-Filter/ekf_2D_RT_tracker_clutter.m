@@ -1,12 +1,13 @@
 %% Extended Kalman Filter implementation for 2D Range-Bearing Tracking
 % Copy-pasted from 1D navigation; fix comments later
 
-function ekf_2D_RT_tracker()
+function ekf_2D_RT_tracker_clutter()
 
 close all; clc
 
 %%
-load data_2D_RT_tracker.mat bearTrue rangeTrue timeStamps zBear zRange
+load data_2D_RT_tracker_clutter.mat zRange zRange2 zRange3 ...
+	zBear zBear2 zBear3 timeStamps rangeTrue bearTrue
 
 nStates = 4;	% States are r, rDot, theta, thetaDot
 nMeas	= 2;	% Measurements are r, theta
@@ -74,37 +75,113 @@ for m1 = 1:(nTimeStamps-1)
 	thisInnovCovar		= C * PMinus * C' + R;
 	thisNormalizedInnov = ( thisInnov' / thisInnovCovar ) * thisInnov;
 
-	if m1 == 11
-		disp(PMinus)
-		disp(R)
-		disp(z)
-		disp(thisInnov)
-		disp(thisInnovCovar)
-		disp(thisNormalizedInnov)
+	if m1 == 25 
+		figure;
+		cla;
+		plot(rangeTrue(m1)*cos(bearTrue(m1)), rangeTrue(m1)*sin(bearTrue(m1)), ...
+			'.', 'MarkerSize', 20); hold on;
+		
+		plot(zRange(m1 + 1)*cos(zBear(m1 + 1)), zRange(m1 + 1)*sin(zBear(m1 + 1)), ...
+			'x', 'MarkerSize', 10); 
+		ax = gca; ax.ColorOrderIndex = ax.ColorOrderIndex - 1;
+		hold on;
 
-		zC1 = [19; 0.6];
-		zC2 = [18.82; 0.7];
-		zC3	= [19.1; 0.56];
+		plot(zRange2(m1 + 1)*cos(zBear2(m1 + 1)), zRange2(m1 + 1)*sin(zBear2(m1 + 1)), ...
+			'x', 'MarkerSize', 10); ax.ColorOrderIndex = ax.ColorOrderIndex - 1;
+		plot(zRange3(m1 + 1)*cos(zBear3(m1 + 1)), zRange3(m1 + 1)*sin(zBear3(m1 + 1)), ...
+			'x', 'MarkerSize', 10)
+	
+		plot(storeXHat(1, 1:m1).*cos(storeXHat(3, 1:m1)), ...
+			storeXHat(1, 1:m1).*sin(storeXHat(3, 1:m1)), ...
+			'.', 'MarkerSize', 30)
+		make_nice_figures(gcf, gca, 18, [], '$y_1$', '$y_2$', ...
+			'Range Rate', [],[],[0 80],[0 20]);
+		drawnow()
+% 		exportgraphics(gca,'mht-example1.png','Resolution',150)
+		pause(0.1)
 
-		zT1	= zC1 - C*xHatMinus;
-		zT2	= zC2 - C*xHatMinus;
-		zT3	= zC3 - C*xHatMinus;
+		make_nice_figures(gcf, gca, 18, [], '$y_1$', '$y_2$', ...
+			'Range Rate', [],[],[21 25], [9 11]);
+% 		exportgraphics(gca,'mht-example2.png','Resolution',150)
 
-		ni1 = ( zT1' / thisInnovCovar ) * zT1
-		ni2 = ( zT2' / thisInnovCovar ) * zT2
-		ni3 = ( zT3' / thisInnovCovar ) * zT3
 
-		niSum	= thisNormalizedInnov + ni1 + ni3;
-		bta0 = thisNormalizedInnov / niSum
-		bta1 = ni1 / niSum
-		bta3 = ni3 / niSum
+		z1	= [zRange(m1 + 1); zBear(m1 + 1)]
+		z2	= [zRange2(m1 + 1); zBear2(m1 + 1)]
+		z3	= [zRange3(m1 + 1); zBear3(m1 + 1)]
 
-		xHat0 = xHatMinus + L*(thisInnov);
-		xHat1 = xHatMinus + L*(zT1);
-		xHat3 = xHatMinus + L*(zT3);
 
-		xHat0
-		bta0*xHat0 + bta1*xHat1 + bta3*xHat3
+		thisInnov1	= z1 - C*xHatMinus
+		thisInnov2	= z2 - C*xHatMinus
+		thisInnov3	= z3 - C*xHatMinus
+
+		( thisInnov1' / thisInnovCovar ) * thisInnov1
+		( thisInnov2' / thisInnovCovar ) * thisInnov2
+		( thisInnov3' / thisInnovCovar ) * thisInnov3
+
+		xHat1		= xHatMinus + L*(thisInnov1)
+		xHat2		= xHatMinus + L*(thisInnov2)
+
+		plot( xHat1(1)*cos(xHat1(3)), xHat1(1)*sin(xHat1(3)), '.', 'MarkerSize', 30)
+		text( xHat1(1)*cos(xHat1(3)), xHat1(1)*sin(xHat1(3)), '$\hat{x}_1$', 'Interpreter','latex')
+		plot( xHat2(1)*cos(xHat2(3)), xHat2(1)*sin(xHat2(3)), '.', 'MarkerSize', 30)
+		text( xHat2(1)*cos(xHat2(3)), xHat2(1)*sin(xHat2(3)), '$\hat{x}_2$', 'Interpreter','latex')
+% 		exportgraphics(gca,'mht-example3.png','Resolution',150)
+
+		lambda1		= ( thisInnov1' / thisInnovCovar ) * thisInnov1
+		lambda2		= ( thisInnov2' / thisInnovCovar ) * thisInnov2
+% 		xHat3		= xHatMinus + L*(thisInnov3);
+
+	end
+
+	if m1 == 26
+
+		xHatMinus1	= one_step_update(xHat1, [0; 0]);
+		xHatMinus2	= one_step_update(xHat2, [0; 0]);
+
+		z1	= [zRange(m1 + 1); zBear(m1 + 1)]
+		z2	= [zRange2(m1 + 1); zBear2(m1 + 1)]
+		z3	= [zRange3(m1 + 1); zBear3(m1 + 1)]
+
+
+		thisInnov11	= z1 - C*xHatMinus1
+		thisInnov21	= z2 - C*xHatMinus1
+		thisInnov31	= z3 - C*xHatMinus1
+		thisInnov12	= z1 - C*xHatMinus2
+		thisInnov22	= z2 - C*xHatMinus2
+		thisInnov32	= z3 - C*xHatMinus2
+
+		( thisInnov11' / thisInnovCovar ) * thisInnov11
+		( thisInnov21' / thisInnovCovar ) * thisInnov21
+		( thisInnov31' / thisInnovCovar ) * thisInnov31
+		( thisInnov12' / thisInnovCovar ) * thisInnov12
+		( thisInnov22' / thisInnovCovar ) * thisInnov22
+		( thisInnov32' / thisInnovCovar ) * thisInnov32
+
+		xHat1		= xHatMinus1 + L*(thisInnov11)
+		xHat2		= xHatMinus1 + L*(thisInnov21)
+		xHat3		= xHatMinus2 + L*(thisInnov12)
+		xHat4		= xHatMinus2 + L*(thisInnov22)
+
+		plot( xHat1(1)*cos(xHat1(3)), xHat1(1)*sin(xHat1(3)), '.', 'MarkerSize', 30)
+		text( xHat1(1)*cos(xHat1(3)), xHat1(1)*sin(xHat1(3)), '$\hat{x}_1$', 'Interpreter','latex')
+
+		plot( xHat2(1)*cos(xHat2(3)), xHat2(1)*sin(xHat2(3)), '.', 'MarkerSize', 30)
+		text( xHat2(1)*cos(xHat2(3)), xHat2(1)*sin(xHat2(3)), '$\hat{x}_2$', 'Interpreter','latex')
+
+		plot( xHat3(1)*cos(xHat3(3)), xHat3(1)*sin(xHat3(3)), '.', 'MarkerSize', 30)
+		text( xHat3(1)*cos(xHat3(3)), xHat3(1)*sin(xHat3(3)), '$\hat{x}_3$', 'Interpreter','latex')
+
+
+		plot( xHat4(1)*cos(xHat4(3)), xHat4(1)*sin(xHat4(3)), '.', 'MarkerSize', 30)
+		text( xHat4(1)*cos(xHat4(3)), xHat4(1)*sin(xHat4(3)), '$\hat{x}_4$', 'Interpreter','latex')
+
+% 		exportgraphics(gca,'mht-example4.png','Resolution',150)
+
+		lambda11	= lambda1 + ( thisInnov11' / thisInnovCovar ) * thisInnov11
+		lambda12	= lambda1 + ( thisInnov21' / thisInnovCovar ) * thisInnov21
+		lambda21	= lambda2 + ( thisInnov12' / thisInnovCovar ) * thisInnov12
+		lambda22	= lambda2 + ( thisInnov22' / thisInnovCovar ) * thisInnov22
+
 
 	end
 
@@ -147,24 +224,28 @@ fprintf('----- Mean square estimation error in bearing (closer to zero is better
 
 
 %% Plot Results
-% figure;
-% for m1 = 1:nTimeStamps
-% 	cla;
-% 	plot(rangeTrue(m1)*cos(bearTrue(m1)), rangeTrue(m1)*sin(bearTrue(m1)), ...
-% 		'.', 'MarkerSize', 20); hold on;
-% 
-% 	plot(zRange(m1)*cos(zBear(m1)), zRange(m1)*sin(zBear(m1)), ...
-% 		'x', 'MarkerSize', 10);
-% 	plot(storeXHat(1, 1:m1).*cos(storeXHat(3, 1:m1)), ...
-% 		storeXHat(1, 1:m1).*sin(storeXHat(3, 1:m1)), ...
-% 		's', 'MarkerSize', 10)
-% 	make_nice_figures(gcf, gca, 18, [], '$y_1$', '$y_2$', ...
-% 		'Range Rate', [],[],[0 80],[0 20]);
-% 	drawnow()
-% 	pause(0.1)
-% 	
-% end
+figure;
+for m1 = 1:nTimeStamps
+	cla;
+	plot(rangeTrue(m1)*cos(bearTrue(m1)), rangeTrue(m1)*sin(bearTrue(m1)), ...
+		'.', 'MarkerSize', 20); hold on;
+	ax = gca;
+	plot(zRange(m1)*cos(zBear(m1)), zRange(m1)*sin(zBear(m1)), ...
+		'x', 'MarkerSize', 10); ax.ColorOrderIndex = ax.ColorOrderIndex - 1;
+	plot(zRange2(m1)*cos(zBear2(m1)), zRange2(m1)*sin(zBear2(m1)), ...
+		'x', 'MarkerSize', 10); ax.ColorOrderIndex = ax.ColorOrderIndex - 1;
+	plot(zRange3(m1)*cos(zBear3(m1)), zRange3(m1)*sin(zBear3(m1)), ...
+		'x', 'MarkerSize', 10)
 
+	plot(storeXHat(1, 1:m1).*cos(storeXHat(3, 1:m1)), ...
+		storeXHat(1, 1:m1).*sin(storeXHat(3, 1:m1)), ...
+		'.', 'MarkerSize', 10)
+	make_nice_figures(gcf, gca, 18, [], '$y_1$', '$y_2$', ...
+		'Range Rate', [],[],[0 80],[0 20]);
+	drawnow()
+	pause(0.1)
+	
+end
 
 % fig1 = figure; 
 % subplot(221); hold on; plot(timeStamps, storeXHat(1,:), 'LineWidth', 2);
@@ -232,16 +313,16 @@ fprintf('----- Mean square estimation error in bearing (closer to zero is better
 % xlabel('Time (s)', 'Interpreter', 'latex', 'FontSize', 12);
 % ylabel('Innovation', 'Interpreter', 'latex', 'FontSize', 12);
 % 
-
-figure;
-histogram(storeNormInnov, 'Normalization','pdf', 'NumBins', 10); hold on;
-xPlot = linspace(0, 15, 100);
-plot( xPlot, chi2pdf(xPlot, nMeas), 'LineWidth', 3);
-make_nice_figures(gcf, gca, 14, [], 'Normalized innovation', 'PDF', 'Normalized Innovation', [],[],[],[]);
-
-figure;
-plot(xPlot, chi2cdf(xPlot, nMeas), 'LineWidth', 3); grid on;
-make_nice_figures(gcf, gca, 14, [], 'Normalized innovation', 'CDF', 'Chi-square CDF', [],[],[],[]);
+% 
+% figure;
+% histogram(storeNormInnov, 'Normalization','pdf', 'NumBins', 10); hold on;
+% xPlot = linspace(0, 15, 100);
+% plot( xPlot, chi2pdf(xPlot, nMeas), 'LineWidth', 3);
+% make_nice_figures(gcf, gca, 14, [], 'Normalized innovation', 'PDF', 'Normalized Innovation', [],[],[],[]);
+% 
+% figure;
+% plot(xPlot, chi2cdf(xPlot, nMeas), 'LineWidth', 3); grid on;
+% make_nice_figures(gcf, gca, 14, [], 'Normalized innovation', 'CDF', 'Chi-square CDF', [],[],[],[]);
 
 
 %%
