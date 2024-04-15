@@ -20,7 +20,7 @@ speedV		= 0.1;						% desired speed, m/s
 
 stdDevProcNoise	= 0.03;
 
-landmarks	= [10 10 -10 -10; 10 -10 10 -10];	% m
+landmarks	= [10 10 -10 -10; 10 -10 10 -10]	% m
 uControl	= zeros(1, nTimeStamps);
 for m1 = 1:nTimeStamps
 	if timeStamps(m1) <= t2 && timeStamps(m1) > t1
@@ -71,7 +71,7 @@ plot(timeStamps, measuredRanges(1,:), '.')
 save assignment4_problem4.mat measuredRanges ...
 	stdDevRange timeStamps nTimeStamps ...
 	groundTruthRanges groundTruthPosition groundTruthHeading ...
-	stdDevProcNoise
+	stdDevProcNoise landmarks u
 
 
 figure;
