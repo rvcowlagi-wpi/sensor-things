@@ -85,6 +85,9 @@ plot3(sensor2(1), sensor2(2), zMax, 'o', 'MarkerSize', 10)
 
 %(xHat(1) - x1F(m1))*(xHat(2) - x2F(m2))
 
+return
+
+
 %% Mutual information
 
 maxMI = 0;
@@ -114,6 +117,9 @@ for m1 = 1:nPoints
 		end
 	end
 end
+
+
+
 
 
 zMax	= max(MI(:));
@@ -169,7 +175,8 @@ for m1 = 1:nPoints
 	end
 end
 
-
+maxMILocation
+maxKLDLocation
 
 zMax	= max(KLDPosterior(:));
 
