@@ -60,32 +60,30 @@ for m1 = 1:nPoints
 		end
 	end
 end
-surf(ax, x1F, x2F, FIM, 'LineStyle','none');
-colorbar; view(2);
-
-zMax	= max(FIM(:));
-
-xPlot	= linspace( (xHat(1) - (1-1E-6)*(sensorMinRange)), (xHat(1) + (1-1E-6)*(sensorMinRange)), 100 );
-yPlot1	= xHat(2) + (sensorMinRange^2 - (xPlot - xHat(1)).^2).^0.5;
-yPlot2	= xHat(2) - (sensorMinRange^2 - (xPlot - xHat(1)).^2).^0.5;
-plot3(xPlot, yPlot1, zMax*ones(length(xPlot), 1), 'LineWidth', 2);
-ax = gca; ax.ColorOrderIndex = ax.ColorOrderIndex - 1;
-plot3(xPlot, yPlot2, zMax*ones(length(xPlot), 1), 'LineWidth', 2);
-
-
-xPlot	= linspace( (xHat(1) - (1-1E-6)*(sensorMaxRange)), (xHat(1) + (1-1E-6)*(sensorMaxRange)), 500 );
-yPlot1	= xHat(2) + (sensorMaxRange^2 - (xPlot - xHat(1)).^2).^0.5;
-yPlot2	= xHat(2) - (sensorMaxRange^2 - (xPlot - xHat(1)).^2).^0.5;
-plot3(xPlot, yPlot1, zMax*ones(length(xPlot), 1), 'LineWidth', 2);
-ax = gca; ax.ColorOrderIndex = ax.ColorOrderIndex - 1;
-plot3(xPlot, yPlot2, zMax*ones(length(xPlot), 1), 'LineWidth', 2);
-
-plot3(maxFIMLocation(1), maxFIMLocation(2), zMax, '.', 'MarkerSize', 20)
-plot3(sensor2(1), sensor2(2), zMax, 'o', 'MarkerSize', 10)
+% surf(ax, x1F, x2F, FIM, 'LineStyle','none');
+% colorbar; view(2);
+% 
+% zMax	= max(FIM(:));
+% 
+% xPlot	= linspace( (xHat(1) - (1-1E-6)*(sensorMinRange)), (xHat(1) + (1-1E-6)*(sensorMinRange)), 100 );
+% yPlot1	= xHat(2) + (sensorMinRange^2 - (xPlot - xHat(1)).^2).^0.5;
+% yPlot2	= xHat(2) - (sensorMinRange^2 - (xPlot - xHat(1)).^2).^0.5;
+% plot3(xPlot, yPlot1, zMax*ones(length(xPlot), 1), 'LineWidth', 2);
+% ax = gca; ax.ColorOrderIndex = ax.ColorOrderIndex - 1;
+% plot3(xPlot, yPlot2, zMax*ones(length(xPlot), 1), 'LineWidth', 2);
+% 
+% 
+% xPlot	= linspace( (xHat(1) - (1-1E-6)*(sensorMaxRange)), (xHat(1) + (1-1E-6)*(sensorMaxRange)), 500 );
+% yPlot1	= xHat(2) + (sensorMaxRange^2 - (xPlot - xHat(1)).^2).^0.5;
+% yPlot2	= xHat(2) - (sensorMaxRange^2 - (xPlot - xHat(1)).^2).^0.5;
+% plot3(xPlot, yPlot1, zMax*ones(length(xPlot), 1), 'LineWidth', 2);
+% ax = gca; ax.ColorOrderIndex = ax.ColorOrderIndex - 1;
+% plot3(xPlot, yPlot2, zMax*ones(length(xPlot), 1), 'LineWidth', 2);
+% 
+% plot3(maxFIMLocation(1), maxFIMLocation(2), zMax, '.', 'MarkerSize', 20)
+% plot3(sensor2(1), sensor2(2), zMax, 'o', 'MarkerSize', 10)
 
 %(xHat(1) - x1F(m1))*(xHat(2) - x2F(m2))
-
-return
 
 
 %% Mutual information
@@ -99,11 +97,17 @@ for m1 = 1:nPoints
 		expRange1	= norm([x1F(m1); x2F(m2)] - xHat);
 		expRange2	= norm(sensor2 - xHat);
 
-		C	= [...
-			(1 / expRange1)*[(xHat(1) - x1F(m1))		(xHat(2) - x2F(m2)) ]; ...
-			(1 / expRange2)*[(xHat(1) - sensor2(1))		(xHat(2) - sensor2(2)) ] ...
-			];
-		PZZ	= C * PXX * C' + rMeas*eye(2);
+		% Two sensors
+% 		C	= [...
+% 			(1 / expRange1)*[(xHat(1) - x1F(m1))		(xHat(2) - x2F(m2)) ]; ...
+% 			(1 / expRange2)*[(xHat(1) - sensor2(1))		(xHat(2) - sensor2(2)) ] ...
+% 			];
+		
+% 		PZZ	= C * PXX * C' + rMeas*eye(2);
+
+		% One sensor
+		C	= (1 / expRange1)*[(xHat(1) - x1F(m1))		(xHat(2) - x2F(m2)) ];
+		PZZ	= C * PXX * C' + rMeas;
 		PXZ	= PXX*C';
 		PJoint = [PXX PXZ; PXZ' PZZ];
 
@@ -140,7 +144,7 @@ make_nice_figures(gcf, gca, 14, [], '$x_1$', '$x_2$', 'Mutual Information', [], 
 surf(ax, x1F, x2F, MI, 'LineStyle','none');
 colorbar; view(2);
 plot3(maxMILocation(1), maxMILocation(2), zMax, '.', 'MarkerSize', 20)
-plot3(sensor2(1), sensor2(2), zMax, 'o', 'MarkerSize', 10)
+% plot3(sensor2(1), sensor2(2), zMax, 'o', 'MarkerSize', 10)
 
 
 %% KL Divergence (2 sensors, 1 fixed)
