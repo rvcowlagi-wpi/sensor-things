@@ -30,11 +30,16 @@ stddevProcNoiseBearing	= sqrt(1E-8);
 vRange		= stddevProcNoiseRange*randn(1, nTimeStamps);
 vThta		= stddevProcNoiseBearing*randn(1, nTimeStamps);
 
+priorP		= blkdiag(900*eye(2), ((pi/180)^2)*eye(2));
+priorXHat	= [r0; rDot0; thta0; thtaDot0] + chol(priorP)*randn(4, 1);
+
+
 [~, xSim]	= ode45(@orbit_kinematics_planar, ...
 	timeStamps, [r0; rDot0; thta0; thtaDot0]);
 
+
 stdDevRange		= 30;			% km
-stdDevRangeRate	= 1*pi/180;		% km/s
+stdDevRangeRate	= 1;			% km/s
 
 groundTruthRange			= xSim(:, 1)';
 groundTruthRangeRate		= xSim(:, 2)';
@@ -48,11 +53,20 @@ nTimeStampsMeasured			= length(timeStampsMeasured);
 measuredRange		= groundTruthRange(timeIndexMeasured) + stdDevRange*randn(1, nTimeStampsMeasured);
 measuredRangeRate	= groundTruthRangeRate(timeIndexMeasured) + stdDevRangeRate*randn(1, nTimeStampsMeasured);
 
-save assignment4_problem3.mat measuredRange measuredRangeRate ...
+% save assignment4_problem3.mat measuredRange measuredRangeRate ...
+% 	stdDevRange stdDevRangeRate timeStamps nTimeStamps ...
+% 	groundTruthRange groundTruthRangeRate groundTruthBearing ...
+% 	groundTruthBearingRate ...
+% 	stddevProcNoiseRange stddevProcNoiseBearing
+
+
+save assignment5_problem3.mat measuredRange measuredRangeRate ...
 	stdDevRange stdDevRangeRate timeStamps nTimeStamps ...
 	groundTruthRange groundTruthRangeRate groundTruthBearing ...
 	groundTruthBearingRate ...
-	stddevProcNoiseRange stddevProcNoiseBearing
+	stddevProcNoiseRange stddevProcNoiseBearing ...
+	priorXHat priorP
+
 
 
 figure;
