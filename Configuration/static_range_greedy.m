@@ -81,12 +81,18 @@ while (nSensorsPlaced < nSensors)
 	zMax	= max(MI(:));
 	
 	hdl1 = surf(ax, x1F, x2F, MI, 'LineStyle','none');
-	clim([zMin zMax]); colorbar; view(2); 
+	if nSensorsPlaced > 1
+		clim([1 zMax]);
+	end
+	colorbar; view(2); 
 	hdl2 = plot3(maxMILocation(1), maxMILocation(2), zMax, '.', 'MarkerSize', 20);
 
 	for m3 = 1:nSensorsPlaced - 1
 		hdl3 = plot3(sensorLocations(1, m3), sensorLocations(2, m3), zMax, 'o', 'MarkerSize', 10);
 	end
+
+	filename_ = ['mi_example1_n' num2str(nSensorsPlaced) '.png'];
+	exportgraphics(gca, filename_, 'Resolution', 150)
 
 	delete(hdl1)
 	delete(hdl2)
